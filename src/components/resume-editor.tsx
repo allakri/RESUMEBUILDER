@@ -171,7 +171,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
     setIsDownloading(true);
     try {
       const canvas = await html2canvas(previewRef.current, {
-        scale: 3, 
+        scale: 2, // Use a slightly lower scale to reduce memory usage
         useCORS: true,
         backgroundColor: "#ffffff",
       });
@@ -179,32 +179,34 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
 
       const pdf = new jsPDF({
         orientation: "portrait",
-        unit: "pt", 
+        unit: "pt",
         format: "a4",
       });
 
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgProps = pdf.getImageProperties(imgData);
-      const ratio = imgProps.height / imgProps.width;
-      const imgHeight = pdfWidth * ratio;
       
+      const imgProps = pdf.getImageProperties(imgData);
+      const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
       let heightLeft = imgHeight;
       let position = 0;
-      
-      pdf.addImage(imgData, "PNG", 0, position, pdfWidth, imgHeight);
+
+      // Add the first page
+      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
       heightLeft -= pdfHeight;
 
+      // Add more pages if the resume is too long
       while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
+        position -= pdfHeight;
         pdf.addPage();
-        pdf.addImage(imgData, "PNG", 0, position, pdfWidth, imgHeight);
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
         heightLeft -= pdfHeight;
       }
 
-      pdf.save(`${resume.name.replace(/\s+/g, "_")}_resume.pdf`);
+      pdf.save(`${resume.name.replace(/\s+/g, "_") || "resume"}_resume.pdf`);
     } catch (error) {
-      console.error(error);
+      console.error("PDF Download failed:", error);
       toast({
         variant: "destructive",
         title: "Download Failed",
@@ -237,10 +239,10 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
 
       // Experience
       children.push(new Paragraph({ text: "Experience", heading: HeadingLevel.HEADING_1 }));
-      resume.experience.forEach(exp => {
+      (resume.experience || []).forEach(exp => {
         children.push(new Paragraph({ children: [new TextRun({ text: exp.title, bold: true }), new TextRun({ text: `, ${exp.company}` })]}));
         children.push(new Paragraph({ children: [new TextRun({ text: `${exp.location} | ${exp.dates}`, italics: true })]}));
-        exp.responsibilities.forEach(resp => children.push(new Paragraph({ text: resp, bullet: { level: 0 } })));
+        (exp.responsibilities || []).forEach(resp => children.push(new Paragraph({ text: resp, bullet: { level: 0 } })));
         children.push(new Paragraph(""));
       });
       
@@ -251,14 +253,14 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
           children.push(new Paragraph({ children: [new TextRun({ text: proj.name, bold: true })]}));
           if (proj.url) children.push(new Paragraph({ text: proj.url, style: "Hyperlink" }));
           children.push(new Paragraph(proj.description));
-          children.push(new Paragraph({ text: `Technologies: ${proj.technologies.join(", ")}`, style: "IntenseQuote"}));
+          children.push(new Paragraph({ text: `Technologies: ${(proj.technologies || []).join(", ")}`, style: "IntenseQuote"}));
           children.push(new Paragraph(""));
         });
       }
 
       // Education
       children.push(new Paragraph({ text: "Education", heading: HeadingLevel.HEADING_1 }));
-      resume.education.forEach(edu => {
+      (resume.education || []).forEach(edu => {
         children.push(new Paragraph({ children: [new TextRun({ text: `${edu.degree}, ${edu.school}`, bold: true })]}));
         children.push(new Paragraph({ children: [new TextRun({ text: `${edu.location} | ${edu.dates}`, italics: true })]}));
         children.push(new Paragraph(""));
@@ -266,25 +268,25 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
 
       // Skills
       children.push(new Paragraph({ text: "Skills", heading: HeadingLevel.HEADING_1 }));
-      children.push(new Paragraph(resume.skills.join(", ")));
+      children.push(new Paragraph((resume.skills || []).join(", ")));
       children.push(new Paragraph(""));
 
       // Achievements
       if (resume.achievements && resume.achievements.length > 0) {
          children.push(new Paragraph({ text: "Achievements", heading: HeadingLevel.HEADING_1 }));
-         resume.achievements.forEach(ach => children.push(new Paragraph({ text: ach, bullet: { level: 0 } })));
+         resume.achievements.forEach(ach => children.push(new Paragraph({ text: ach || '', bullet: { level: 0 } })));
          children.push(new Paragraph(""));
       }
       
       // Hobbies
       if (resume.hobbies && resume.hobbies.length > 0) {
         children.push(new Paragraph({ text: "Hobbies & Interests", heading: HeadingLevel.HEADING_1 }));
-        children.push(new Paragraph(resume.hobbies.join(", ")));
+        children.push(new Paragraph((resume.hobbies || []).join(", ")));
       }
 
       const doc = new Document({ sections: [{ children }] });
       const blob = await Packer.toBlob(doc);
-      saveAs(blob, `${resume.name.replace(/\s+/g, "_")}_resume.docx`);
+      saveAs(blob, `${resume.name.replace(/\s+/g, "_") || "resume"}_resume.docx`);
     } catch (error) {
       console.error(error);
       toast({
