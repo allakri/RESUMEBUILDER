@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useRef, useState } from "react";
@@ -19,6 +20,14 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ResumePreview } from "./resume-preview";
 
 interface ResumeEditorProps {
   initialResumeData: ResumeDataWithIds;
@@ -33,7 +42,10 @@ export function ResumeEditor({ initialResumeData }: ResumeEditorProps) {
     canUndo,
     canRedo,
   } = useHistoryState<ResumeDataWithIds>(initialResumeData);
+
+  const [template, setTemplate] = useState("modern");
   const resumeRef = useRef<HTMLDivElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const { toast } = useToast();
 
@@ -92,41 +104,28 @@ export function ResumeEditor({ initialResumeData }: ResumeEditorProps) {
   };
 
   const handleDownloadPdf = async () => {
-    if (!resumeRef.current) return;
+    if (!previewRef.current) return;
     setIsDownloading(true);
     try {
-      const canvas = await html2canvas(resumeRef.current, {
-        scale: 2,
+      const canvas = await html2canvas(previewRef.current, {
+        scale: 2.5, // High scale for better quality
         useCORS: true,
         backgroundColor: "#ffffff",
       });
       const imgData = canvas.toDataURL("image/png");
+
       const pdf = new jsPDF({
         orientation: "portrait",
-        unit: "pt",
+        unit: "in",
         format: "a4",
       });
+
+      const imgProps = pdf.getImageProperties(imgData);
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const canvasWidth = canvas.width;
-      const canvasHeight = canvas.height;
-      const ratio = canvasWidth / pdfWidth;
-      const scaledHeight = canvasHeight / ratio;
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
 
-      let position = 0;
-      let heightLeft = scaledHeight;
-
-      pdf.addImage(imgData, "PNG", 0, position, pdfWidth, scaledHeight, undefined, 'FAST');
-      heightLeft -= pdfHeight;
-
-      while (heightLeft > 0) {
-        position = -heightLeft;
-        pdf.addPage();
-        pdf.addImage(imgData, "PNG", 0, position, pdfWidth, scaledHeight, undefined, 'FAST');
-        heightLeft -= pdfHeight;
-      }
-
-      pdf.save("resume.pdf");
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`${resume.name.replace(/\s+/g, "_")}_resume.pdf`);
     } catch (error) {
       console.error(error);
       toast({
@@ -196,7 +195,7 @@ export function ResumeEditor({ initialResumeData }: ResumeEditorProps) {
       });
 
       const blob = await Packer.toBlob(doc);
-      saveAs(blob, "resume.docx");
+      saveAs(blob, `${resume.name.replace(/\s+/g, "_")}_resume.docx`);
     } catch (error) {
       console.error(error);
       toast({
@@ -221,6 +220,15 @@ export function ResumeEditor({ initialResumeData }: ResumeEditorProps) {
         <Button onClick={redo} disabled={!canRedo} variant="outline" size="sm">
           <Redo className="mr-2" /> Redo
         </Button>
+        <Select value={template} onValueChange={setTemplate}>
+          <SelectTrigger className="w-[150px] h-9">
+            <SelectValue placeholder="Template" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="modern">Modern</SelectItem>
+            <SelectItem value="classic">Classic</SelectItem>
+          </SelectContent>
+        </Select>
         <Button
           onClick={handleDownloadPdf}
           disabled={isDownloading}
@@ -247,6 +255,10 @@ export function ResumeEditor({ initialResumeData }: ResumeEditorProps) {
           )}
           DOCX
         </Button>
+      </div>
+      
+      <div className="absolute top-0 left-0 -z-50 opacity-0 pointer-events-none" aria-hidden="true">
+        <ResumePreview ref={previewRef} resumeData={resume} templateName={template} />
       </div>
 
       <div

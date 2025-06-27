@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -80,5 +81,50 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  /* Classic Resume Template Styles */
+  .template-classic {
+    @apply font-serif;
+  }
+  .template-classic .name {
+    @apply text-4xl font-bold text-center border-b-2 border-black pb-2 mb-1;
+  }
+  .template-classic .contact-info {
+    @apply text-center text-sm;
+  }
+  .template-classic .section-title {
+    @apply text-base font-bold uppercase tracking-widest border-b border-black pb-1 mb-3 mt-4;
+  }
+  .template-classic .entry {
+    @apply mb-3;
+  }
+  .template-classic h3 {
+    @apply text-base;
+  }
+
+  /* Modern Resume Template Styles */
+  .template-modern {
+    @apply font-sans;
+  }
+  .template-modern .name {
+    @apply text-5xl font-semibold text-gray-800;
+  }
+  .template-modern .header {
+    @apply border-b border-gray-200;
+  }
+  .template-modern .contact-info {
+    @apply text-gray-600;
+  }
+  .template-modern .section-title {
+    @apply text-xs font-bold uppercase tracking-wider text-gray-600 border-none pb-1 mb-2;
+  }
+  .template-modern section {
+    @apply pl-4 border-l-2 border-gray-400;
+  }
+  .template-modern h3 {
+    @apply text-base;
   }
 }
