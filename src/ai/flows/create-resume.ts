@@ -49,7 +49,7 @@ const ResumeSchema = z.object({
           .describe(
             'The name of the website (e.g., LinkedIn, GitHub, Portfolio)'
           ),
-        url: z.string().url().describe('The URL'),
+        url: z.string().describe('The URL'),
       })
     )
     .optional()
@@ -62,7 +62,7 @@ const ResumeSchema = z.object({
         technologies: z
           .array(z.string())
           .describe('A list of technologies used in the project.'),
-        url: z.string().url().optional().describe('The URL for the project.'),
+        url: z.string().optional().describe('The URL for the project.'),
       })
     )
     .optional()
