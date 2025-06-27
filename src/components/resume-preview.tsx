@@ -1,7 +1,7 @@
 
 "use client";
 
-import * as React from "react";
+import React from "react";
 import type { ResumeDataWithIds } from "@/ai/flows/create-resume";
 import { cn } from "@/lib/utils";
 
@@ -18,14 +18,14 @@ export const ResumePreview = React.forwardRef<HTMLDivElement, ResumePreviewProps
       <div
         ref={ref}
         className={cn(
-          "p-8 bg-white text-black font-sans w-[8.5in]",
-          templateName,
+          "p-8 bg-white text-black font-sans w-full",
+          `template-${templateName}`,
           className
         )}
         {...props}
       >
         <header className="text-center mb-6 header">
-          <h1 className="text-4xl font-bold tracking-wider uppercase name">
+          <h1 className="name">
             {resume.name}
           </h1>
           <p className="text-sm mt-2 contact-info">

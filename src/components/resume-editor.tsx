@@ -3,12 +3,15 @@
 
 import React, { useRef, useState } from "react";
 import {
+  ChevronLeft,
   Download,
+  FileText,
   Loader2,
   Move,
   Pencil,
   PlusCircle,
   Redo,
+  Sparkles,
   Trash2,
   Undo,
 } from "lucide-react";
@@ -16,7 +19,8 @@ import { saveAs } from "file-saver";
 import { Document, Packer, Paragraph, TextRun } from "docx";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import type { ResumeDataWithIds } from "@/ai/flows/create-resume";
+import type { ResumeData, ResumeDataWithIds } from "@/ai/flows/create-resume";
+import { enhanceResume } from "@/ai/flows/enhance-resume";
 import { useHistoryState } from "@/hooks/use-history-state";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -31,12 +35,15 @@ import {
 } from "@/components/ui/select";
 import { ResumePreview } from "./resume-preview";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "./ui/card";
+import { ScrollArea } from "./ui/scroll-area";
+import Image from "next/image";
 
 interface ResumeEditorProps {
   initialResumeData: ResumeDataWithIds;
+  onBack: () => void;
 }
 
-export function ResumeEditor({ initialResumeData }: ResumeEditorProps) {
+export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
   const {
     state: resume,
     set: setResume,
@@ -49,6 +56,7 @@ export function ResumeEditor({ initialResumeData }: ResumeEditorProps) {
   const [template, setTemplate] = useState("modern");
   const previewRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isEnhancing, setIsEnhancing] = useState(false);
   const { toast } = useToast();
 
   const handleUpdate = (updater: (draft: ResumeDataWithIds) => void) => {
@@ -105,12 +113,55 @@ export function ResumeEditor({ initialResumeData }: ResumeEditorProps) {
     });
   };
 
+  const handleEnhance = async () => {
+    setIsEnhancing(true);
+    try {
+      // We need to strip the IDs before sending to the AI
+      const resumeForApi: ResumeData = {
+        ...resume,
+        experience: resume.experience.map(({ id, ...rest }) => rest),
+        education: resume.education.map(({ id, ...rest }) => rest),
+      };
+      const enhancedData = await enhanceResume(resumeForApi);
+
+      // Re-add IDs for the client-side state
+      const enhancedDataWithIds: ResumeDataWithIds = {
+        ...enhancedData,
+        experience: enhancedData.experience.map((exp, index) => ({
+          ...exp,
+          id: resume.experience[index]?.id || crypto.randomUUID(),
+        })),
+        education: enhancedData.education.map((edu, index) => ({
+          ...edu,
+          id: resume.education[index]?.id || crypto.randomUUID(),
+        })),
+      };
+
+      setResume(enhancedDataWithIds);
+
+      toast({
+        title: "Resume Enhanced!",
+        description: "Your resume has been improved by AI.",
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Enhancement Failed",
+        description: "There was an error enhancing your resume.",
+      });
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
+
+
   const handleDownloadPdf = async () => {
     if (!previewRef.current) return;
     setIsDownloading(true);
     try {
       const canvas = await html2canvas(previewRef.current, {
-        scale: 2.5,
+        scale: 3, // Increased scale for better quality
         useCORS: true,
         backgroundColor: "#ffffff",
       });
@@ -118,15 +169,29 @@ export function ResumeEditor({ initialResumeData }: ResumeEditorProps) {
 
       const pdf = new jsPDF({
         orientation: "portrait",
-        unit: "in",
+        unit: "pt", // Use points for better precision
         format: "a4",
       });
 
-      const imgProps = pdf.getImageProperties(imgData);
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgProps = pdf.getImageProperties(imgData);
+      const ratio = imgProps.height / imgProps.width;
+      const imgHeight = pdfWidth * ratio;
+      
+      let heightLeft = imgHeight;
+      let position = 0;
+      
+      pdf.addImage(imgData, "PNG", 0, position, pdfWidth, imgHeight);
+      heightLeft -= pdfHeight;
 
-      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 0, position, pdfWidth, imgHeight);
+        heightLeft -= pdfHeight;
+      }
+
       pdf.save(`${resume.name.replace(/\s+/g, "_")}_resume.pdf`);
     } catch (error) {
       console.error(error);
@@ -210,41 +275,41 @@ export function ResumeEditor({ initialResumeData }: ResumeEditorProps) {
     }
   };
 
+  const editorDisabled = isDownloading || isEnhancing;
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="font-headline text-3xl font-bold">Resume Editor</h1>
-        <div className="flex items-center gap-2">
-            <Button onClick={undo} disabled={!canUndo} variant="outline" size="sm">
-              <Undo className="mr-2" /> Undo
+     <div className="flex h-screen bg-background">
+      {/* Editor Column */}
+      <div className="flex-1 flex flex-col">
+        <header className="flex items-center justify-between p-4 border-b border-border">
+            <Button variant="ghost" onClick={onBack}>
+                <ChevronLeft className="mr-2" /> Back
             </Button>
-            <Button onClick={redo} disabled={!canRedo} variant="outline" size="sm">
-              <Redo className="mr-2" /> Redo
-            </Button>
-            <Button onClick={handleDownloadPdf} disabled={isDownloading} variant="outline" size="sm">
-              {isDownloading ? <Loader2 className="mr-2 animate-spin" /> : <Download className="mr-2" />}
-              PDF
-            </Button>
-            <Button onClick={handleDownloadDocx} disabled={isDownloading} variant="outline" size="sm">
-              {isDownloading ? <Loader2 className="mr-2 animate-spin" /> : <Download className="mr-2" />}
-              DOCX
-            </Button>
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-        {/* Editor Column */}
-        <div className="lg:col-span-2 space-y-8">
-            {/* Contact Info */}
+            <div className="flex items-center gap-2">
+                <h1 className="text-lg font-bold font-headline hidden sm:block">Resume Editor</h1>
+            </div>
+            <div className="flex items-center gap-2">
+                <Button onClick={undo} disabled={!canUndo || editorDisabled} variant="outline" size="sm">
+                  <Undo className="mr-2" /> Undo
+                </Button>
+                <Button onClick={redo} disabled={!canRedo || editorDisabled} variant="outline" size="sm">
+                  <Redo className="mr-2" /> Redo
+                </Button>
+            </div>
+        </header>
+
+        <ScrollArea className="flex-1">
+          <div className="p-8 space-y-8 max-w-4xl mx-auto">
+             {/* Contact Info */}
             <Card>
                 <CardHeader>
                     <CardTitle>Contact Information</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <Input value={resume.name} onChange={(e) => handleUpdate((draft) => (draft.name = e.target.value))} placeholder="Your Name" />
-                    <Input value={resume.email} onChange={(e) => handleUpdate((draft) => (draft.email = e.target.value))} placeholder="your.email@example.com" />
-                    <Input value={resume.phone} onChange={(e) => handleUpdate((draft) => (draft.phone = e.target.value))} placeholder="Your Phone" />
-                    <Input value={resume.linkedin || ""} onChange={(e) => handleUpdate((draft) => (draft.linkedin = e.target.value))} placeholder="LinkedIn Profile" />
+                    <Input disabled={editorDisabled} value={resume.name} onChange={(e) => handleUpdate((draft) => (draft.name = e.target.value))} placeholder="Your Name" />
+                    <Input disabled={editorDisabled} value={resume.email} onChange={(e) => handleUpdate((draft) => (draft.email = e.target.value))} placeholder="your.email@example.com" />
+                    <Input disabled={editorDisabled} value={resume.phone} onChange={(e) => handleUpdate((draft) => (draft.phone = e.target.value))} placeholder="Your Phone" />
+                    <Input disabled={editorDisabled} value={resume.linkedin || ""} onChange={(e) => handleUpdate((draft) => (draft.linkedin = e.target.value))} placeholder="LinkedIn Profile" />
                 </CardContent>
             </Card>
 
@@ -254,7 +319,7 @@ export function ResumeEditor({ initialResumeData }: ResumeEditorProps) {
                     <CardTitle>Summary</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <Textarea value={resume.summary} onChange={(e) => handleUpdate((draft) => (draft.summary = e.target.value))} placeholder="A brief professional summary..." rows={5}/>
+                    <Textarea disabled={editorDisabled} value={resume.summary} onChange={(e) => handleUpdate((draft) => (draft.summary = e.target.value))} placeholder="A brief professional summary..." rows={5}/>
                 </CardContent>
             </Card>
 
@@ -262,7 +327,7 @@ export function ResumeEditor({ initialResumeData }: ResumeEditorProps) {
             <div>
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-2xl font-bold font-headline">Experience</h2>
-                    <Button variant="outline" onClick={() => addSectionItem("experience")}>
+                    <Button disabled={editorDisabled} variant="outline" onClick={() => addSectionItem("experience")}>
                         <PlusCircle className="mr-2 h-4 w-4" /> Add Experience
                     </Button>
                 </div>
@@ -270,31 +335,26 @@ export function ResumeEditor({ initialResumeData }: ResumeEditorProps) {
                     {resume.experience.map((exp, expIndex) => (
                     <Card key={exp.id}>
                         <CardContent className="p-4 space-y-2">
-                             <Input value={exp.title} onChange={(e) => handleUpdate((draft) => (draft.experience[expIndex].title = e.target.value))} placeholder="Job Title" className="font-bold"/>
-                             <Input value={exp.company} onChange={(e) => handleUpdate((draft) => (draft.experience[expIndex].company = e.target.value))} placeholder="Company"/>
+                             <Input disabled={editorDisabled} value={exp.title} onChange={(e) => handleUpdate((draft) => (draft.experience[expIndex].title = e.target.value))} placeholder="Job Title" className="font-bold"/>
+                             <Input disabled={editorDisabled} value={exp.company} onChange={(e) => handleUpdate((draft) => (draft.experience[expIndex].company = e.target.value))} placeholder="Company"/>
                              <div className="flex gap-2">
-                                <Input value={exp.location} onChange={(e) => handleUpdate((draft) => (draft.experience[expIndex].location = e.target.value))} placeholder="Location"/>
-                                <Input value={exp.dates} onChange={(e) => handleUpdate((draft) => (draft.experience[expIndex].dates = e.target.value))} placeholder="Dates (e.g., Jan 2020 - Present)"/>
+                                <Input disabled={editorDisabled} value={exp.location} onChange={(e) => handleUpdate((draft) => (draft.experience[expIndex].location = e.target.value))} placeholder="Location"/>
+                                <Input disabled={editorDisabled} value={exp.dates} onChange={(e) => handleUpdate((draft) => (draft.experience[expIndex].dates = e.target.value))} placeholder="Dates (e.g., Jan 2020 - Present)"/>
                              </div>
                              <ul className="space-y-2 pt-2">
                                 {exp.responsibilities.map((resp, respIndex) => (
                                     <li key={respIndex} className="flex items-center gap-2">
-                                        <Textarea value={resp} onChange={(e) => handleUpdate((draft) => (draft.experience[expIndex].responsibilities[respIndex] = e.target.value))} className="w-full" placeholder="Responsibility or achievement" rows={1}/>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => removeResponsibility(expIndex, respIndex)}>
+                                        <Textarea disabled={editorDisabled} value={resp} onChange={(e) => handleUpdate((draft) => (draft.experience[expIndex].responsibilities[respIndex] = e.target.value))} className="w-full" placeholder="Responsibility or achievement" rows={2}/>
+                                        <Button disabled={editorDisabled} variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => removeResponsibility(expIndex, respIndex)}>
                                             <Trash2 className="h-4 w-4" />
                                         </Button>
                                     </li>
                                 ))}
                              </ul>
-                            <Button variant="outline" size="sm" onClick={() => addResponsibility(expIndex)}><PlusCircle className="mr-2 h-4 w-4" /> Add Responsibility</Button>
+                            <Button disabled={editorDisabled} variant="outline" size="sm" onClick={() => addResponsibility(expIndex)}><PlusCircle className="mr-2 h-4 w-4" /> Add Responsibility</Button>
                         </CardContent>
-                         <CardFooter className="flex justify-between p-4 border-t">
-                            <Button variant="ghost" size="sm" className="relative"><span className="absolute top-1 right-1 block h-2 w-2 rounded-full bg-red-500"></span>See suggestions</Button>
-                            <div>
-                                <Button variant="ghost" size="sm"><Pencil className="mr-2"/>Edit</Button>
-                                <Button variant="ghost" size="sm" onClick={() => removeSectionItem("experience", expIndex)}><Trash2 className="mr-2"/>Delete</Button>
-                                <Button variant="ghost" size="sm"><Move className="mr-2"/>Move</Button>
-                            </div>
+                         <CardFooter className="flex justify-end p-2 border-t">
+                            <Button disabled={editorDisabled} variant="ghost" size="sm" onClick={() => removeSectionItem("experience", expIndex)}><Trash2 className="mr-2"/>Delete Section</Button>
                         </CardFooter>
                     </Card>
                     ))}
@@ -305,7 +365,7 @@ export function ResumeEditor({ initialResumeData }: ResumeEditorProps) {
             <div>
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-2xl font-bold font-headline">Education</h2>
-                    <Button variant="outline" onClick={() => addSectionItem("education")}>
+                    <Button disabled={editorDisabled} variant="outline" onClick={() => addSectionItem("education")}>
                         <PlusCircle className="mr-2 h-4 w-4" /> Add Education
                     </Button>
                 </div>
@@ -313,20 +373,15 @@ export function ResumeEditor({ initialResumeData }: ResumeEditorProps) {
                     {resume.education.map((edu, eduIndex) => (
                     <Card key={edu.id}>
                         <CardContent className="p-4 space-y-2">
-                           <Input value={edu.degree} onChange={(e) => handleUpdate((draft) => (draft.education[eduIndex].degree = e.target.value))} placeholder="Degree / Certificate" className="font-bold"/>
-                           <Input value={edu.school} onChange={(e) => handleUpdate((draft) => (draft.education[eduIndex].school = e.target.value))} placeholder="School / Institution"/>
+                           <Input disabled={editorDisabled} value={edu.degree} onChange={(e) => handleUpdate((draft) => (draft.education[eduIndex].degree = e.target.value))} placeholder="Degree / Certificate" className="font-bold"/>
+                           <Input disabled={editorDisabled} value={edu.school} onChange={(e) => handleUpdate((draft) => (draft.education[eduIndex].school = e.target.value))} placeholder="School / Institution"/>
                            <div className="flex gap-2">
-                             <Input value={edu.location} onChange={(e) => handleUpdate((draft) => (draft.education[eduIndex].location = e.target.value))} placeholder="Location"/>
-                             <Input value={edu.dates} onChange={(e) => handleUpdate((draft) => (draft.education[eduIndex].dates = e.target.value))} placeholder="Dates"/>
+                             <Input disabled={editorDisabled} value={edu.location} onChange={(e) => handleUpdate((draft) => (draft.education[eduIndex].location = e.target.value))} placeholder="Location"/>
+                             <Input disabled={editorDisabled} value={edu.dates} onChange={(e) => handleUpdate((draft) => (draft.education[eduIndex].dates = e.target.value))} placeholder="Dates"/>
                            </div>
                         </CardContent>
-                         <CardFooter className="flex justify-between p-4 border-t">
-                            <Button variant="ghost" size="sm" className="relative"><span className="absolute top-1 right-1 block h-2 w-2 rounded-full bg-red-500"></span>See suggestions</Button>
-                            <div>
-                                <Button variant="ghost" size="sm"><Pencil className="mr-2"/>Edit</Button>
-                                <Button variant="ghost" size="sm" onClick={() => removeSectionItem("education", eduIndex)}><Trash2 className="mr-2"/>Delete</Button>
-                                <Button variant="ghost" size="sm"><Move className="mr-2"/>Move</Button>
-                            </div>
+                        <CardFooter className="flex justify-end p-2 border-t">
+                            <Button disabled={editorDisabled} variant="ghost" size="sm" onClick={() => removeSectionItem("education", eduIndex)}><Trash2 className="mr-2"/>Delete Section</Button>
                         </CardFooter>
                     </Card>
                     ))}
@@ -337,7 +392,7 @@ export function ResumeEditor({ initialResumeData }: ResumeEditorProps) {
             <div>
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-2xl font-bold font-headline">Skills</h2>
-                    <Button variant="outline" onClick={() => addSectionItem("skills")}>
+                    <Button disabled={editorDisabled} variant="outline" onClick={() => addSectionItem("skills")}>
                         <PlusCircle className="mr-2 h-4 w-4" /> Add Skill
                     </Button>
                 </div>
@@ -345,9 +400,9 @@ export function ResumeEditor({ initialResumeData }: ResumeEditorProps) {
                     <CardContent className="p-4">
                         <div className="flex flex-wrap gap-2">
                         {resume.skills.map((skill, skillIndex) => (
-                            <div key={skillIndex} className="flex items-center group rounded-md bg-gray-200">
-                            <Input value={skill} onChange={(e) => handleUpdate((draft) => (draft.skills[skillIndex] = e.target.value))} className="border-none focus:ring-0 shadow-none bg-transparent h-8 text-black" placeholder="New Skill"/>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => removeSectionItem("skills", skillIndex)}>
+                            <div key={skillIndex} className="flex items-center group rounded-md bg-accent">
+                            <Input disabled={editorDisabled} value={skill} onChange={(e) => handleUpdate((draft) => (draft.skills[skillIndex] = e.target.value))} className="border-none focus:ring-0 shadow-none bg-transparent h-8 text-foreground" placeholder="New Skill"/>
+                            <Button disabled={editorDisabled} variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => removeSectionItem("skills", skillIndex)}>
                                 <Trash2 className="h-4 w-4" />
                             </Button>
                             </div>
@@ -356,16 +411,15 @@ export function ResumeEditor({ initialResumeData }: ResumeEditorProps) {
                     </CardContent>
                 </Card>
             </div>
-        </div>
+          </div>
+        </ScrollArea>
+      </div>
 
-        {/* Preview Column */}
-        <div className="lg:col-span-1">
-          <div className="sticky top-8 space-y-4">
-             <div className="bg-white rounded-lg shadow-lg border">
-                <ResumePreview ref={previewRef} resumeData={resume} templateName={template} />
-             </div>
-             <Select value={template} onValueChange={setTemplate}>
-                <SelectTrigger>
+      {/* Preview Column */}
+      <div className="hidden lg:flex flex-col w-[45%] max-w-[8.5in] bg-gray-800 shadow-2xl">
+          <header className="flex items-center justify-between p-4 bg-gray-900/50 border-b border-border">
+            <Select value={template} onValueChange={setTemplate}>
+                <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="Change template" />
                 </SelectTrigger>
                 <SelectContent>
@@ -373,8 +427,28 @@ export function ResumeEditor({ initialResumeData }: ResumeEditorProps) {
                     <SelectItem value="classic">Classic</SelectItem>
                 </SelectContent>
             </Select>
+            <div className="flex items-center gap-2">
+                 <Button onClick={handleDownloadPdf} disabled={editorDisabled} variant="outline">
+                    {isDownloading ? <Loader2 className="mr-2 animate-spin" /> : <Download className="mr-2" />}
+                    PDF
+                 </Button>
+                 <Button onClick={handleDownloadDocx} disabled={editorDisabled} variant="outline">
+                    {isDownloading ? <Loader2 className="mr-2 animate-spin" /> : <Download className="mr-2" />}
+                    DOCX
+                 </Button>
+            </div>
+          </header>
+          <div className="p-4 flex-1 overflow-auto">
+             <div className="bg-white rounded-lg shadow-lg origin-top scale-[0.9] -translate-y-8">
+                <ResumePreview ref={previewRef} resumeData={resume} templateName={template} />
+             </div>
           </div>
-        </div>
+          <footer className="p-4 border-t border-border bg-gray-900/50">
+                <Button onClick={handleEnhance} disabled={editorDisabled} className="w-full" size="lg">
+                    {isEnhancing ? <Loader2 className="mr-2 animate-spin" /> : <Sparkles className="mr-2" />}
+                    Enhance with AI
+                </Button>
+            </footer>
       </div>
     </div>
   );

@@ -1,20 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { FileUp, Loader2, Sparkles } from "lucide-react";
+import { FileUp, Loader2, Sparkles, Upload } from "lucide-react";
 import { optimizeResumeForAts } from "@/ai/flows/ats-optimization";
 import { createResume, ResumeDataWithIds } from "@/ai/flows/create-resume";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ResumeEditor } from "./resume-editor";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 
-export function ResumeOptimizer() {
+interface ResumeOptimizerProps {
+  onComplete: (data: ResumeDataWithIds) => void;
+  onProcessing: (isProcessing: boolean) => void;
+  isProcessing: boolean;
+}
+
+export function ResumeOptimizer({ onComplete, onProcessing, isProcessing }: ResumeOptimizerProps) {
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumeDataUri, setResumeDataUri] = useState<string | null>(null);
-  const [structuredResume, setStructuredResume] =
-    useState<ResumeDataWithIds | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
   const { toast } = useToast();
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -71,8 +74,7 @@ export function ResumeOptimizer() {
       return;
     }
 
-    setIsLoading(true);
-    setStructuredResume(null);
+    onProcessing(true);
     try {
       // Step 1: Optimize resume to get text
       const optimizationResult = await optimizeResumeForAts({
@@ -96,7 +98,8 @@ export function ResumeOptimizer() {
         })),
       };
 
-      setStructuredResume(resumeWithIds);
+      onComplete(resumeWithIds);
+
     } catch (error) {
       console.error(error);
       toast({
@@ -105,12 +108,11 @@ export function ResumeOptimizer() {
         description:
           "There was an error processing your resume. Please try again.",
       });
-    } finally {
-      setIsLoading(false);
+      onProcessing(false);
     }
   };
 
-  if (isLoading) {
+  if (isProcessing) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 p-8 min-h-[400px]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -122,54 +124,48 @@ export function ResumeOptimizer() {
     );
   }
 
-  if (structuredResume) {
-    return <ResumeEditor initialResumeData={structuredResume} />;
-  }
-
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="flex-1 space-y-2">
-          <label
-            htmlFor="resume-upload"
-            className="block text-sm font-medium text-foreground"
-          >
-            Upload your resume (PDF only)
-          </label>
-          <div className="relative">
-            <Input
-              id="resume-upload"
-              type="file"
-              accept=".pdf"
-              onChange={handleFileChange}
-              className="pr-12"
-            />
-            <FileUp className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
-          </div>
-          {resumeFile && (
-            <p className="text-sm text-muted-foreground">
-              Selected: {resumeFile.name}
-            </p>
-          )}
-        </div>
-        <Button
-          onClick={handleOptimizeAndCreate}
-          disabled={!resumeFile || isLoading}
-          className="self-end"
-        >
-          {isLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Processing...
-            </>
-          ) : (
-            <>
-              <Sparkles className="mr-2 h-4 w-4" />
-              Create Resume
-            </>
-          )}
-        </Button>
-      </div>
-    </div>
+    <Card className="w-full max-w-lg">
+        <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+                <Upload />
+                Upload an existing resume
+            </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+            <div className="space-y-2">
+                <label
+                    htmlFor="resume-upload"
+                    className="block text-sm font-medium text-foreground"
+                >
+                    Upload your resume (PDF only, max 5MB)
+                </label>
+                <div className="relative">
+                    <Input
+                    id="resume-upload"
+                    type="file"
+                    accept=".pdf"
+                    onChange={handleFileChange}
+                    className="pr-12"
+                    />
+                    <FileUp className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
+                </div>
+                {resumeFile && (
+                    <p className="text-sm text-muted-foreground">
+                    Selected: {resumeFile.name}
+                    </p>
+                )}
+            </div>
+            <Button
+                onClick={handleOptimizeAndCreate}
+                disabled={!resumeFile || isProcessing}
+                className="w-full"
+                size="lg"
+            >
+                <Sparkles className="mr-2 h-4 w-4" />
+                Optimize & Edit
+            </Button>
+        </CardContent>
+    </Card>
   );
 }
