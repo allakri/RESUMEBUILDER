@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useRef, useState } from "react";
@@ -34,6 +33,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ResumePreview } from "./resume-preview";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "./ui/card";
 import { ScrollArea } from "./ui/scroll-area";
@@ -171,7 +176,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
     setIsDownloading(true);
     try {
       const canvas = await html2canvas(previewRef.current, {
-        scale: 2, // Use a slightly lower scale to reduce memory usage
+        scale: 2,
         useCORS: true,
         backgroundColor: "#ffffff",
       });
@@ -192,11 +197,9 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
       let heightLeft = imgHeight;
       let position = 0;
 
-      // Add the first page
       pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
       heightLeft -= pdfHeight;
 
-      // Add more pages if the resume is too long
       while (heightLeft > 0) {
         position -= pdfHeight;
         pdf.addPage();
@@ -222,7 +225,6 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
     try {
       const children: Paragraph[] = [];
       
-      // Title and Contact
       children.push(new Paragraph({ text: resume.name, heading: HeadingLevel.TITLE }));
       const contactParts = [resume.email, resume.phone];
       children.push(new Paragraph({ text: contactParts.join(" | ") }));
@@ -230,14 +232,12 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
       if (resume.websites && resume.websites.length > 0) {
         children.push(new Paragraph({ text: resume.websites.map(w => w.url).join(" | ") }));
       }
-      children.push(new Paragraph("")); // Spacer
+      children.push(new Paragraph(""));
 
-      // Summary
       children.push(new Paragraph({ text: "Summary", heading: HeadingLevel.HEADING_1 }));
       children.push(new Paragraph(resume.summary));
       children.push(new Paragraph(""));
 
-      // Experience
       children.push(new Paragraph({ text: "Experience", heading: HeadingLevel.HEADING_1 }));
       (resume.experience || []).forEach(exp => {
         children.push(new Paragraph({ children: [new TextRun({ text: exp.title, bold: true }), new TextRun({ text: `, ${exp.company}` })]}));
@@ -246,7 +246,6 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
         children.push(new Paragraph(""));
       });
       
-      // Projects
       if (resume.projects && resume.projects.length > 0) {
         children.push(new Paragraph({ text: "Projects", heading: HeadingLevel.HEADING_1 }));
         resume.projects.forEach(proj => {
@@ -258,7 +257,6 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
         });
       }
 
-      // Education
       children.push(new Paragraph({ text: "Education", heading: HeadingLevel.HEADING_1 }));
       (resume.education || []).forEach(edu => {
         children.push(new Paragraph({ children: [new TextRun({ text: `${edu.degree}, ${edu.school}`, bold: true })]}));
@@ -266,19 +264,16 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
         children.push(new Paragraph(""));
       });
 
-      // Skills
       children.push(new Paragraph({ text: "Skills", heading: HeadingLevel.HEADING_1 }));
       children.push(new Paragraph((resume.skills || []).join(", ")));
       children.push(new Paragraph(""));
 
-      // Achievements
       if (resume.achievements && resume.achievements.length > 0) {
          children.push(new Paragraph({ text: "Achievements", heading: HeadingLevel.HEADING_1 }));
          resume.achievements.forEach(ach => children.push(new Paragraph({ text: ach || '', bullet: { level: 0 } })));
          children.push(new Paragraph(""));
       }
       
-      // Hobbies
       if (resume.hobbies && resume.hobbies.length > 0) {
         children.push(new Paragraph({ text: "Hobbies & Interests", heading: HeadingLevel.HEADING_1 }));
         children.push(new Paragraph((resume.hobbies || []).join(", ")));
@@ -306,24 +301,41 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
       {/* Editor Column */}
       <div className="flex-1 flex flex-col">
         <header className="flex items-center justify-between p-4 border-b border-border">
-            <Button variant="ghost" onClick={onBack}>
+            <Button variant="ghost" onClick={onBack} className="hidden sm:flex">
                 <ChevronLeft className="mr-2" /> Back to Home
             </Button>
             <div className="flex items-center gap-2">
-                <h1 className="text-lg font-bold font-headline hidden sm:block">Resume Editor</h1>
+                <Button onClick={undo} disabled={!canUndo || editorDisabled} variant="outline" size="icon">
+                  <Undo className="h-4 w-4" />
+                  <span className="sr-only">Undo</span>
+                </Button>
+                <Button onClick={redo} disabled={!canRedo || editorDisabled} variant="outline" size="icon">
+                  <Redo className="h-4 w-4" />
+                  <span className="sr-only">Redo</span>
+                </Button>
             </div>
             <div className="flex items-center gap-2">
-                <Button onClick={undo} disabled={!canUndo || editorDisabled} variant="outline" size="sm">
-                  <Undo className="mr-2" /> Undo
+                <Button onClick={handleEnhance} disabled={editorDisabled} variant="outline" size="sm">
+                  {isEnhancing ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                  <span className="hidden sm:inline ml-2">Enhance</span>
                 </Button>
-                <Button onClick={redo} disabled={!canRedo || editorDisabled} variant="outline" size="sm">
-                  <Redo className="mr-2" /> Redo
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="default" size="sm" disabled={editorDisabled}>
+                      <Download />
+                      <span className="hidden sm:inline ml-2">Download</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={handleDownloadPdf}>PDF</DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleDownloadDocx}>DOCX</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
             </div>
         </header>
 
         <ScrollArea className="flex-1">
-          <div className="p-8 space-y-8 max-w-4xl mx-auto">
+          <div className="p-4 sm:p-8 space-y-8 max-w-4xl mx-auto">
             <Card>
                 <CardHeader><CardTitle>Contact Information</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
@@ -471,19 +483,12 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                     <SelectItem value="classic">Classic</SelectItem>
                 </SelectContent>
             </Select>
-            <div className="flex items-center gap-2">
-                 <Button onClick={handleDownloadPdf} disabled={editorDisabled} variant="outline">{isDownloading ? <Loader2 className="mr-2 animate-spin" /> : <Download className="mr-2" />} PDF</Button>
-                 <Button onClick={handleDownloadDocx} disabled={editorDisabled} variant="outline">{isDownloading ? <Loader2 className="mr-2 animate-spin" /> : <Download className="mr-2" />} DOCX</Button>
-            </div>
           </header>
           <div className="p-4 flex-1 overflow-auto">
              <div className="bg-white rounded-lg shadow-lg origin-top scale-[0.9] -translate-y-8">
                 <ResumePreview ref={previewRef} resumeData={resume} templateName={template} />
              </div>
           </div>
-          <footer className="p-4 border-t border-border bg-gray-900/50">
-                <Button onClick={handleEnhance} disabled={editorDisabled} className="w-full" size="lg">{isEnhancing ? <Loader2 className="mr-2 animate-spin" /> : <Sparkles className="mr-2" />} Enhance with AI</Button>
-            </footer>
       </div>
     </div>
   );
