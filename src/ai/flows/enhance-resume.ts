@@ -15,7 +15,6 @@ const ResumeSchema = z.object({
   name: z.string().describe('The full name of the person.'),
   email: z.string().describe('The email address.'),
   phone: z.string().describe('The phone number.'),
-  linkedin: z.string().optional().describe('The LinkedIn profile URL.'),
   summary: z.string().describe('A professional summary.'),
   experience: z
     .array(
@@ -41,7 +40,42 @@ const ResumeSchema = z.object({
     )
     .describe('The education section.'),
   skills: z.array(z.string()).describe('A list of relevant skills.'),
+  websites: z
+    .array(
+      z.object({
+        name: z
+          .string()
+          .describe(
+            'The name of the website (e.g., LinkedIn, GitHub, Portfolio)'
+          ),
+        url: z.string().url().describe('The URL'),
+      })
+    )
+    .optional()
+    .describe('A list of relevant websites or professional profiles.'),
+  projects: z
+    .array(
+      z.object({
+        name: z.string().describe('The project name.'),
+        description: z.string().describe('A short description of the project.'),
+        technologies: z
+          .array(z.string())
+          .describe('A list of technologies used in the project.'),
+        url: z.string().url().optional().describe('The URL for the project.'),
+      })
+    )
+    .optional()
+    .describe('A list of personal or professional projects.'),
+  achievements: z
+    .array(z.string())
+    .optional()
+    .describe('A list of achievements, awards, or honors.'),
+  hobbies: z
+    .array(z.string())
+    .optional()
+    .describe('A list of hobbies and interests.'),
 });
+
 
 export type ResumeData = z.infer<typeof ResumeSchema>;
 
@@ -56,7 +90,8 @@ const prompt = ai.definePrompt({
   prompt: `You are an expert resume writer and career coach. 
   Your task is to enhance the provided resume data. 
   Rewrite the summary to be more professional and impactful. 
-  For each experience entry, review the responsibilities and rewrite them to use strong action verbs and quantify achievements where possible. 
+  For each experience entry, review the responsibilities and rewrite them to use strong action verbs and quantify achievements where possible.
+  For each project, review the description and make it more concise and achievement-oriented.
   Do not invent new facts or numbers. Only improve the phrasing of the existing content. 
   Return the full, updated resume data in the exact same JSON format.
 

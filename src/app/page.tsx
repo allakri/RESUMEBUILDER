@@ -14,7 +14,6 @@ const BLANK_RESUME: ResumeDataWithIds = {
   name: "Your Name",
   email: "your.email@example.com",
   phone: "123-456-7890",
-  linkedin: "linkedin.com/in/yourprofile",
   summary: "A brief professional summary about you.",
   experience: [
     {
@@ -36,6 +35,24 @@ const BLANK_RESUME: ResumeDataWithIds = {
     },
   ],
   skills: ["Skill 1", "Skill 2", "Skill 3"],
+  websites: [
+    {
+      id: crypto.randomUUID(),
+      name: "LinkedIn",
+      url: "https://linkedin.com/in/yourprofile",
+    },
+  ],
+  projects: [
+    {
+      id: crypto.randomUUID(),
+      name: "Project Name",
+      description: "A short description of your project.",
+      technologies: ["React", "Node.js"],
+      url: "https://github.com/yourprofile/project",
+    },
+  ],
+  achievements: ["First prize in a hackathon."],
+  hobbies: ["Reading", "Hiking"],
 };
 
 

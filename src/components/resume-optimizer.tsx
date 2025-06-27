@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { FileUp, Loader2, Sparkles, Upload } from "lucide-react";
 import { optimizeResumeForAts } from "@/ai/flows/ats-optimization";
-import { createResume, ResumeDataWithIds } from "@/ai/flows/create-resume";
+import { createResume, ResumeData, ResumeDataWithIds } from "@/ai/flows/create-resume";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -82,20 +82,22 @@ export function ResumeOptimizer({ onComplete, onProcessing, isProcessing }: Resu
       });
 
       // Step 2: Create structured resume from optimized text
-      const structuredResult = await createResume({
+      const structuredResult: ResumeData = await createResume({
         resumeText: optimizationResult.optimizedResumeText,
       });
 
       const resumeWithIds: ResumeDataWithIds = {
-        ...structuredResult,
-        experience: structuredResult.experience.map((exp) => ({
-          ...exp,
-          id: crypto.randomUUID(),
-        })),
-        education: structuredResult.education.map((edu) => ({
-          ...edu,
-          id: crypto.randomUUID(),
-        })),
+        name: structuredResult.name,
+        email: structuredResult.email,
+        phone: structuredResult.phone,
+        summary: structuredResult.summary,
+        experience: structuredResult.experience.map((exp) => ({ ...exp, id: crypto.randomUUID() })),
+        education: structuredResult.education.map((edu) => ({ ...edu, id: crypto.randomUUID() })),
+        skills: structuredResult.skills || [],
+        websites: (structuredResult.websites || []).map((site) => ({ ...site, id: crypto.randomUUID() })),
+        projects: (structuredResult.projects || []).map((proj) => ({ ...proj, id: crypto.randomUUID() })),
+        achievements: structuredResult.achievements || [],
+        hobbies: structuredResult.hobbies || [],
       };
 
       onComplete(resumeWithIds);

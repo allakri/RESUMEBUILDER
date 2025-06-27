@@ -16,7 +16,6 @@ const ResumeSchema = z.object({
   name: z.string().describe('The full name of the person.'),
   email: z.string().describe('The email address.'),
   phone: z.string().describe('The phone number.'),
-  linkedin: z.string().optional().describe('The LinkedIn profile URL.'),
   summary: z.string().describe('A professional summary.'),
   experience: z
     .array(
@@ -42,13 +41,67 @@ const ResumeSchema = z.object({
     )
     .describe('The education section.'),
   skills: z.array(z.string()).describe('A list of relevant skills.'),
+  websites: z
+    .array(
+      z.object({
+        name: z
+          .string()
+          .describe(
+            'The name of the website (e.g., LinkedIn, GitHub, Portfolio)'
+          ),
+        url: z.string().url().describe('The URL'),
+      })
+    )
+    .optional()
+    .describe('A list of relevant websites or professional profiles.'),
+  projects: z
+    .array(
+      z.object({
+        name: z.string().describe('The project name.'),
+        description: z.string().describe('A short description of the project.'),
+        technologies: z
+          .array(z.string())
+          .describe('A list of technologies used in the project.'),
+        url: z.string().url().optional().describe('The URL for the project.'),
+      })
+    )
+    .optional()
+    .describe('A list of personal or professional projects.'),
+  achievements: z
+    .array(z.string())
+    .optional()
+    .describe('A list of achievements, awards, or honors.'),
+  hobbies: z
+    .array(z.string())
+    .optional()
+    .describe('A list of hobbies and interests.'),
 });
 
 export type ResumeData = z.infer<typeof ResumeSchema>;
 
-export type ResumeDataWithIds = Omit<ResumeData, 'experience' | 'education'> & {
-  experience: (ResumeData['experience'][0] & {id: string})[];
-  education: (ResumeData['education'][0] & {id: string})[];
+export type WebsiteWithId = {id: string; name: string; url: string};
+export type ProjectWithId = {
+  id: string;
+  name: string;
+  description: string;
+  technologies: string[];
+  url?: string;
+};
+export type ExperienceWithId = ResumeData['experience'][0] & {id: string};
+export type EducationWithId = ResumeData['education'][0] & {id: string};
+
+export type ResumeDataWithIds = {
+  name: string;
+  email: string;
+  phone: string;
+  summary: string;
+  experience: ExperienceWithId[];
+  education: EducationWithId[];
+  skills: string[];
+  websites: WebsiteWithId[];
+  projects: ProjectWithId[];
+  achievements?: string[];
+  hobbies?: string[];
 };
 
 const CreateResumeInputSchema = z.object({
@@ -68,7 +121,7 @@ const prompt = ai.definePrompt({
   output: {schema: ResumeSchema},
   prompt: `You are an expert resume formatter.
   Analyze the following resume text and structure it into a professional resume format.
-  Extract the name, contact information, summary, work experience, education, and skills.
+  Extract the name, contact information, summary, work experience, education, skills, projects, websites/profiles, achievements, and hobbies.
 
   Resume Text:
   {{{resumeText}}}
