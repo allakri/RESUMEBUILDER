@@ -70,6 +70,12 @@
 }
 
 @layer components {
+  /* General Prose styles for preview */
+  .prose-sm {
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
   /* Classic Resume Template Styles */
   .template-classic {
     @apply font-serif;
