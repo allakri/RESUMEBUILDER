@@ -16,8 +16,9 @@ import {
 import { saveAs } from "file-saver";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
 import jsPDF from "jspdf";
-import type { ResumeData, ResumeDataWithIds, ExperienceWithId, EducationWithId, WebsiteWithId, ProjectWithId, CustomSectionWithId } from "@/ai/flows/create-resume";
+import type { ResumeData, ResumeDataWithIds, ExperienceWithId, EducationWithId, WebsiteWithId, ProjectWithId, CustomSectionWithId } from "@/ai/resume-schema";
 import { enhanceResume } from "@/ai/flows/enhance-resume";
+import { chatEnhanceResume } from "@/ai/flows/chat-enhance-resume";
 import { useHistoryState } from "@/hooks/use-history-state";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -54,18 +55,25 @@ interface ResumeEditorProps {
   onBack: () => void;
 }
 
-// Helper for deep cloning without IDs for the API
-const stripIds = (resume: ResumeDataWithIds): ResumeData => {
-    const { experience, education, projects, websites, customSections, ...rest } = resume;
+// Helper to ensure all list items have a client-side ID.
+// The AI may create new items without an ID, so we need to add one.
+const assignIdsToResume = (resume: ResumeData): ResumeDataWithIds => {
+    const ensureIds = (arr: any[] = []) => arr.map(item => ({ ...item, id: item.id || crypto.randomUUID() }));
+
     return {
-        ...rest,
-        experience: experience.map(({ id, ...exp }) => exp),
-        education: education.map(({ id, ...edu }) => edu),
-        projects: (projects || []).map(({ id, ...proj }) => proj),
-        websites: (websites || []).map(({ id, ...site }) => site),
-        customSections: (customSections || []).map(({ id, ...sec }) => sec),
-    };
+        ...resume,
+        experience: ensureIds(resume.experience),
+        education: ensureIds(resume.education),
+        websites: ensureIds(resume.websites),
+        projects: ensureIds(resume.projects),
+        customSections: ensureIds(resume.customSections),
+        // Ensure optional fields that are just string arrays exist
+        skills: resume.skills || [],
+        achievements: resume.achievements || [],
+        hobbies: resume.hobbies || [],
+    } as ResumeDataWithIds;
 };
+
 
 type EditableSection =
   | { type: 'contact' }
@@ -99,6 +107,8 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
   const previewRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
+  const [isChatEnhancing, setIsChatEnhancing] = useState(false);
+  const [chatQuery, setChatQuery] = useState("");
   const { toast } = useToast();
 
   const [editingSection, setEditingSection] = useState<EditableSection | null>(null);
@@ -190,28 +200,28 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
             break;
         case 'experience': {
             const index = draft.experience.findIndex(item => item.id === editingSection.id);
-            if (index > -1) draft.experience[index] = editFormData;
+            if (index > -1) draft.experience[index] = { ...editFormData, id: editingSection.id };
             break;
         }
         case 'education': {
             const index = draft.education.findIndex(item => item.id === editingSection.id);
-            if (index > -1) draft.education[index] = editFormData;
+            if (index > -1) draft.education[index] = { ...editFormData, id: editingSection.id };
             break;
         }
         case 'websites': {
             const index = draft.websites.findIndex(item => item.id === editingSection.id);
-            if (index > -1) draft.websites[index] = editFormData;
+            if (index > -1) draft.websites[index] = { ...editFormData, id: editingSection.id };
             break;
         }
         case 'projects': {
             const index = draft.projects.findIndex(item => item.id === editingSection.id);
-            if (index > -1) draft.projects[index] = editFormData;
+            if (index > -1) draft.projects[index] = { ...editFormData, id: editingSection.id };
             break;
         }
         case 'customSections': {
             if (!draft.customSections) draft.customSections = [];
             const index = draft.customSections.findIndex(item => item.id === editingSection.id);
-            if (index > -1) draft.customSections[index] = editFormData;
+            if (index > -1) draft.customSections[index] = { ...editFormData, id: editingSection.id };
             break;
         }
         case 'new_experience':
@@ -247,29 +257,35 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
   const handleEnhance = async () => {
     setIsEnhancing(true);
     try {
-      const resumeForApi = stripIds(resume);
-      const enhancedData = await enhanceResume(resumeForApi);
-
-      // Re-add IDs for the client-side state
-      const enhancedDataWithIds: ResumeDataWithIds = {
-        ...enhancedData,
-        experience: enhancedData.experience.map((exp, index) => ({ ...exp, id: resume.experience[index]?.id || crypto.randomUUID() })),
-        education: enhancedData.education.map((edu, index) => ({ ...edu, id: resume.education[index]?.id || crypto.randomUUID() })),
-        websites: (enhancedData.websites || []).map((site, index) => ({ ...site, id: resume.websites[index]?.id || crypto.randomUUID() })),
-        projects: (enhancedData.projects || []).map((proj, index) => ({ ...proj, id: resume.projects[index]?.id || crypto.randomUUID() })),
-        customSections: (enhancedData.customSections || []).map((sec, index) => ({ ...sec, id: resume.customSections?.[index]?.id || crypto.randomUUID() })),
-        skills: enhancedData.skills || [],
-        achievements: enhancedData.achievements || [],
-        hobbies: enhancedData.hobbies || [],
-      };
-
-      setResume(enhancedDataWithIds);
+      const enhancedData = await enhanceResume(resume);
+      const finalResume = assignIdsToResume(enhancedData);
+      setResume(finalResume);
       toast({ title: "Resume Enhanced!", description: "Your resume has been improved by AI." });
     } catch (error) {
       console.error(error);
       toast({ variant: "destructive", title: "Enhancement Failed", description: "There was an error enhancing your resume." });
     } finally {
       setIsEnhancing(false);
+    }
+  };
+
+  const handleChatEnhance = async () => {
+    if (!chatQuery.trim()) {
+        toast({ title: "Please enter a request.", variant: "destructive" });
+        return;
+    }
+    setIsChatEnhancing(true);
+    try {
+        const enhancedData = await chatEnhanceResume({ resume, query: chatQuery });
+        const finalResume = assignIdsToResume(enhancedData);
+        setResume(finalResume);
+        setChatQuery("");
+        toast({ title: "AI Enhancement Complete!", description: "Your resume has been updated based on your request." });
+    } catch (error) {
+        console.error("Chat enhancement failed:", error);
+        toast({ variant: "destructive", title: "Enhancement Failed", description: "The AI assistant could not process your request." });
+    } finally {
+        setIsChatEnhancing(false);
     }
   };
 
@@ -282,7 +298,6 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
           const contentWidth = pageWidth - margin * 2;
           let y = margin;
   
-          // Helper function to check for page breaks
           const checkPageBreak = (height: number) => {
               if (y + height > doc.internal.pageSize.getHeight() - margin) {
                   doc.addPage();
@@ -290,24 +305,21 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
               }
           };
   
-          // --- RENDER HEADER ---
           doc.setFont('helvetica', 'bold').setFontSize(22).text(resume.name, pageWidth / 2, y, { align: 'center' });
           y += 25;
           const contactInfo = [resume.email, resume.phone, ...(resume.websites || []).map(w => w.url)].filter(Boolean).join(' | ');
           doc.setFont('helvetica', 'normal').setFontSize(10).text(contactInfo, pageWidth / 2, y, { align: 'center' });
           y += 30;
   
-          // --- RENDER SECTIONS ---
           const renderSection = (title: string, body: () => void) => {
               checkPageBreak(40);
               doc.setFont('helvetica', 'bold').setFontSize(12).text(title.toUpperCase(), margin, y);
-              doc.line(margin, y + 3, contentWidth + margin, y + 3); // Underline
+              doc.line(margin, y + 3, contentWidth + margin, y + 3);
               y += 20;
               body();
-              y += 15; // Spacing after section
+              y += 15;
           };
   
-          // Summary
           renderSection('Summary', () => {
               const summaryLines = doc.splitTextToSize(resume.summary, contentWidth);
               checkPageBreak(summaryLines.length * 12);
@@ -315,11 +327,10 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
               y += summaryLines.length * 12;
           });
   
-          // Experience
           if (resume.experience.length > 0) {
               renderSection('Experience', () => {
                   resume.experience.forEach(exp => {
-                      checkPageBreak(50); // Rough estimate
+                      checkPageBreak(50);
                       doc.setFont('helvetica', 'bold').setFontSize(11).text(exp.title, margin, y);
                       doc.setFont('helvetica', 'normal').text(exp.dates, pageWidth - margin, y, { align: 'right' });
                       y += 14;
@@ -329,7 +340,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
   
                       exp.responsibilities.forEach(resp => {
                           const respLines = doc.splitTextToSize(`- ${resp}`, contentWidth - 10);
-                          checkPageBreak(respLines.length * 12);
+                          checkPageBreak(respLines.length * 12 + 2);
                           doc.text(respLines, margin + 10, y);
                           y += respLines.length * 12 + 2;
                       });
@@ -338,7 +349,6 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
               });
           }
           
-          // Projects
           if (resume.projects && resume.projects.length > 0) {
               renderSection('Projects', () => {
                    resume.projects.forEach(proj => {
@@ -358,7 +368,6 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
               });
           }
 
-          // Education
           if (resume.education.length > 0) {
               renderSection('Education', () => {
                   resume.education.forEach(edu => {
@@ -372,7 +381,6 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
               });
           }
 
-          // Custom Sections
           if (resume.customSections && resume.customSections.length > 0) {
             resume.customSections.forEach(sec => {
               renderSection(sec.title, () => {
@@ -384,7 +392,6 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
             });
           }
   
-          // Skills
           renderSection('Skills', () => {
               const skillsLines = doc.splitTextToSize(resume.skills.join(', '), contentWidth);
               checkPageBreak(skillsLines.length * 12);
@@ -413,7 +420,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
         if (resume.websites && resume.websites.length > 0) {
             children.push(new Paragraph({ text: resume.websites.map(w => w.url).join(" | ") }));
         }
-        children.push(new Paragraph("")); // Spacer
+        children.push(new Paragraph(""));
 
         children.push(new Paragraph({ text: "Summary", heading: HeadingLevel.HEADING_1 }));
         children.push(new Paragraph({ children: createTextRuns(resume.summary)}));
@@ -479,7 +486,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
     }
   };
 
-  const editorDisabled = isDownloading || isEnhancing;
+  const editorDisabled = isDownloading || isEnhancing || isChatEnhancing;
   
   const removeItem = (type: 'experience' | 'education' | 'websites' | 'projects' | 'customSections', id: string) => {
     handleUpdate(draft => {
@@ -660,7 +667,6 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
 
   return (
      <div className="flex h-screen bg-background">
-      {/* Editor Column */}
       <div className="flex-1 flex flex-col">
         <header className="flex items-center justify-between p-4 border-b border-border bg-card">
             <Button variant="ghost" onClick={onBack} className="hidden sm:flex">
@@ -694,7 +700,6 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
         </header>
 
         <main className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-8 p-8 overflow-y-auto">
-            {/* Left side: Controls and Add Buttons */}
             <aside className="space-y-6">
                 <Card>
                     <CardHeader><CardTitle>Template</CardTitle></CardHeader>
@@ -727,9 +732,27 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                        <Button variant="outline" onClick={() => handleEdit({ type: 'new_customSection' })}><PlusCircle/>Custom Section</Button>
                     </CardContent>
                 </Card>
+                <Card>
+                    <CardHeader><CardTitle>AI Assistant</CardTitle></CardHeader>
+                    <CardContent className="space-y-4">
+                        <p className="text-sm text-muted-foreground">
+                            Describe the changes you'd like to make. For example, "Make my summary more punchy" or "Rewrite my last job's responsibilities to highlight leadership."
+                        </p>
+                        <Textarea
+                            placeholder="Your request..."
+                            value={chatQuery}
+                            onChange={(e) => setChatQuery(e.target.value)}
+                            disabled={editorDisabled}
+                            rows={4}
+                        />
+                        <Button onClick={handleChatEnhance} disabled={editorDisabled} className="w-full">
+                            {isChatEnhancing ? <Loader2 className="animate-spin" /> : <Sparkles className="mr-2"/>}
+                            Enhance with Chat
+                        </Button>
+                    </CardContent>
+                </Card>
             </aside>
 
-            {/* Right side: Interactive Resume Preview */}
             <div className="lg:col-span-1">
                  <ScrollArea className="h-full">
                     <div className="p-4 bg-gray-800 rounded-lg">
@@ -752,7 +775,6 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
   );
 }
 
-// Re-add label prop to Input and Textarea for use in modals
 const CustomInput = React.forwardRef<HTMLInputElement, {label?:string} & React.ComponentProps<typeof Input>>(({ className, type, label, ...props }, ref) => {
     const id = React.useId();
     if (!label) {

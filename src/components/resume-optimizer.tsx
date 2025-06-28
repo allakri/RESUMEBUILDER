@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { FileUp, Loader2, Sparkles, Upload } from "lucide-react";
 import { optimizeResumeForAts } from "@/ai/flows/ats-optimization";
-import { createResume, ResumeData, ResumeDataWithIds } from "@/ai/flows/create-resume";
+import { createResume } from "@/ai/flows/create-resume";
+import { type ResumeData, type ResumeDataWithIds } from "@/ai/resume-schema";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
