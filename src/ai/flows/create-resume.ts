@@ -75,6 +75,21 @@ const ResumeSchema = z.object({
     .array(z.string())
     .optional()
     .describe('A list of hobbies and interests.'),
+  customSections: z
+    .array(
+      z.object({
+        title: z.string().describe('The title of the custom section.'),
+        content: z
+          .string()
+          .describe(
+            'The content of the custom section, can be a paragraph or a list of items.'
+          ),
+      })
+    )
+    .optional()
+    .describe(
+      "A list of custom user-defined sections, like 'Certifications' or 'Languages'."
+    ),
 });
 
 export type ResumeData = z.infer<typeof ResumeSchema>;
@@ -89,6 +104,7 @@ export type ProjectWithId = {
 };
 export type ExperienceWithId = ResumeData['experience'][0] & {id: string};
 export type EducationWithId = ResumeData['education'][0] & {id: string};
+export type CustomSectionWithId = {id: string; title: string; content: string};
 
 export type ResumeDataWithIds = {
   name: string;
@@ -102,6 +118,7 @@ export type ResumeDataWithIds = {
   projects: ProjectWithId[];
   achievements?: string[];
   hobbies?: string[];
+  customSections?: CustomSectionWithId[];
 };
 
 const CreateResumeInputSchema = z.object({
@@ -122,6 +139,7 @@ const prompt = ai.definePrompt({
   prompt: `You are an expert resume formatter.
   Analyze the following resume text and structure it into a professional resume format.
   Extract the name, contact information, summary, work experience, education, skills, projects, websites/profiles, achievements, and hobbies.
+  If you find sections that do not fit into the standard categories (like 'Certifications', 'Publications', or 'Languages'), parse them into the 'customSections' array. Each item should have a 'title' and its corresponding 'content'.
 
   Resume Text:
   {{{resumeText}}}

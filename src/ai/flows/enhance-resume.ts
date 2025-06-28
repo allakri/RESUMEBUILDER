@@ -74,8 +74,22 @@ const ResumeSchema = z.object({
     .array(z.string())
     .optional()
     .describe('A list of hobbies and interests.'),
+  customSections: z
+    .array(
+      z.object({
+        title: z.string().describe('The title of the custom section.'),
+        content: z
+          .string()
+          .describe(
+            'The content of the custom section, can be a paragraph or a list of items.'
+          ),
+      })
+    )
+    .optional()
+    .describe(
+      "A list of custom user-defined sections, like 'Certifications' or 'Languages'."
+    ),
 });
-
 
 export type ResumeData = z.infer<typeof ResumeSchema>;
 
@@ -89,11 +103,12 @@ const prompt = ai.definePrompt({
   output: {schema: ResumeSchema},
   prompt: `You are an expert resume writer and career coach. 
   Your task is to enhance the provided resume data. 
-  Rewrite the summary to be more professional and impactful. 
-  For each experience entry, review the responsibilities and rewrite them to use strong action verbs and quantify achievements where possible.
-  For each project, review the description and make it more concise and achievement-oriented.
-  Do not invent new facts or numbers. Only improve the phrasing of the existing content. 
-  Return the full, updated resume data in the exact same JSON format.
+  - Rewrite the summary to be more professional and impactful. 
+  - For each experience entry, review the responsibilities and rewrite them to use strong action verbs and quantify achievements where possible.
+  - For each project, review the description and make it more concise and achievement-oriented.
+  - For each custom section, review its content and improve the phrasing for clarity and impact.
+  - Do not invent new facts or numbers. Only improve the phrasing of the existing content. 
+  - Return the full, updated resume data in the exact same JSON format.
 
   Resume Data:
   {{{jsonStringify this}}}

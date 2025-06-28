@@ -15,9 +15,8 @@ import {
 } from "lucide-react";
 import { saveAs } from "file-saver";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
-import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import type { ResumeData, ResumeDataWithIds, ExperienceWithId, EducationWithId, WebsiteWithId, ProjectWithId } from "@/ai/flows/create-resume";
+import type { ResumeData, ResumeDataWithIds, ExperienceWithId, EducationWithId, WebsiteWithId, ProjectWithId, CustomSectionWithId } from "@/ai/flows/create-resume";
 import { enhanceResume } from "@/ai/flows/enhance-resume";
 import { useHistoryState } from "@/hooks/use-history-state";
 import { useToast } from "@/hooks/use-toast";
@@ -57,13 +56,14 @@ interface ResumeEditorProps {
 
 // Helper for deep cloning without IDs for the API
 const stripIds = (resume: ResumeDataWithIds): ResumeData => {
-    const { experience, education, projects, websites, ...rest } = resume;
+    const { experience, education, projects, websites, customSections, ...rest } = resume;
     return {
         ...rest,
         experience: experience.map(({ id, ...exp }) => exp),
         education: education.map(({ id, ...edu }) => edu),
         projects: (projects || []).map(({ id, ...proj }) => proj),
         websites: (websites || []).map(({ id, ...site }) => site),
+        customSections: (customSections || []).map(({ id, ...sec }) => sec),
     };
 };
 
@@ -77,10 +77,12 @@ type EditableSection =
   | { type: 'skills' }
   | { type: 'achievements' }
   | { type: 'hobbies' }
+  | { type: 'customSections'; id: string }
   | { type: 'new_experience' }
   | { type: 'new_education' }
   | { type: 'new_website' }
-  | { type: 'new_project' };
+  | { type: 'new_project' }
+  | { type: 'new_customSection' };
 
 
 export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
@@ -131,6 +133,9 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
       case 'projects':
         dataToEdit = resume.projects?.find(item => item.id === section.id);
         break;
+      case 'customSections':
+        dataToEdit = resume.customSections?.find(item => item.id === section.id);
+        break;
       case 'new_experience':
         dataToEdit = { title: "", company: "", location: "", dates: "", responsibilities: [""] };
         break;
@@ -142,6 +147,9 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
         break;
       case 'new_project':
         dataToEdit = { name: "", description: "", technologies: [], url: "" };
+        break;
+      case 'new_customSection':
+        dataToEdit = { title: "New Section", content: "Details about this section." };
         break;
       case 'skills':
       case 'hobbies':
@@ -200,6 +208,12 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
             if (index > -1) draft.projects[index] = editFormData;
             break;
         }
+        case 'customSections': {
+            if (!draft.customSections) draft.customSections = [];
+            const index = draft.customSections.findIndex(item => item.id === editingSection.id);
+            if (index > -1) draft.customSections[index] = editFormData;
+            break;
+        }
         case 'new_experience':
             draft.experience.push({ ...editFormData, id: crypto.randomUUID() });
             break;
@@ -207,12 +221,17 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
             draft.education.push({ ...editFormData, id: crypto.randomUUID() });
             break;
         case 'new_website':
+            if (!draft.websites) draft.websites = [];
             draft.websites.push({ ...editFormData, id: crypto.randomUUID() });
             break;
         case 'new_project':
+            if (!draft.projects) draft.projects = [];
             draft.projects.push({ ...editFormData, id: crypto.randomUUID() });
             break;
-        // Simple arrays, just replace them
+        case 'new_customSection':
+            if (!draft.customSections) draft.customSections = [];
+            draft.customSections.push({ ...editFormData, id: crypto.randomUUID() });
+            break;
         case 'skills':
         case 'hobbies':
         case 'achievements':
@@ -238,6 +257,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
         education: enhancedData.education.map((edu, index) => ({ ...edu, id: resume.education[index]?.id || crypto.randomUUID() })),
         websites: (enhancedData.websites || []).map((site, index) => ({ ...site, id: resume.websites[index]?.id || crypto.randomUUID() })),
         projects: (enhancedData.projects || []).map((proj, index) => ({ ...proj, id: resume.projects[index]?.id || crypto.randomUUID() })),
+        customSections: (enhancedData.customSections || []).map((sec, index) => ({ ...sec, id: resume.customSections?.[index]?.id || crypto.randomUUID() })),
         skills: enhancedData.skills || [],
         achievements: enhancedData.achievements || [],
         hobbies: enhancedData.hobbies || [],
@@ -254,35 +274,131 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
   };
 
   const handleDownloadPdf = async () => {
-    if (!previewRef.current) return;
-    setIsDownloading(true);
-    try {
-      const canvas = await html2canvas(previewRef.current, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const imgProps = pdf.getImageProperties(imgData);
-      const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
-      let heightLeft = imgHeight;
-      let position = 0;
+      setIsDownloading(true);
+      try {
+          const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+          const pageWidth = doc.internal.pageSize.getWidth();
+          const margin = 40;
+          const contentWidth = pageWidth - margin * 2;
+          let y = margin;
+  
+          // Helper function to check for page breaks
+          const checkPageBreak = (height: number) => {
+              if (y + height > doc.internal.pageSize.getHeight() - margin) {
+                  doc.addPage();
+                  y = margin;
+              }
+          };
+  
+          // --- RENDER HEADER ---
+          doc.setFont('helvetica', 'bold').setFontSize(22).text(resume.name, pageWidth / 2, y, { align: 'center' });
+          y += 25;
+          const contactInfo = [resume.email, resume.phone, ...(resume.websites || []).map(w => w.url)].filter(Boolean).join(' | ');
+          doc.setFont('helvetica', 'normal').setFontSize(10).text(contactInfo, pageWidth / 2, y, { align: 'center' });
+          y += 30;
+  
+          // --- RENDER SECTIONS ---
+          const renderSection = (title: string, body: () => void) => {
+              checkPageBreak(40);
+              doc.setFont('helvetica', 'bold').setFontSize(12).text(title.toUpperCase(), margin, y);
+              doc.line(margin, y + 3, contentWidth + margin, y + 3); // Underline
+              y += 20;
+              body();
+              y += 15; // Spacing after section
+          };
+  
+          // Summary
+          renderSection('Summary', () => {
+              const summaryLines = doc.splitTextToSize(resume.summary, contentWidth);
+              checkPageBreak(summaryLines.length * 12);
+              doc.setFontSize(10).text(summaryLines, margin, y);
+              y += summaryLines.length * 12;
+          });
+  
+          // Experience
+          if (resume.experience.length > 0) {
+              renderSection('Experience', () => {
+                  resume.experience.forEach(exp => {
+                      checkPageBreak(50); // Rough estimate
+                      doc.setFont('helvetica', 'bold').setFontSize(11).text(exp.title, margin, y);
+                      doc.setFont('helvetica', 'normal').text(exp.dates, pageWidth - margin, y, { align: 'right' });
+                      y += 14;
+                      doc.setFont('helvetica', 'bold').text(exp.company, margin, y);
+                      doc.setFont('helvetica', 'normal').text(exp.location, pageWidth - margin, y, { align: 'right' });
+                      y += 14;
+  
+                      exp.responsibilities.forEach(resp => {
+                          const respLines = doc.splitTextToSize(`- ${resp}`, contentWidth - 10);
+                          checkPageBreak(respLines.length * 12);
+                          doc.text(respLines, margin + 10, y);
+                          y += respLines.length * 12 + 2;
+                      });
+                      y += 10;
+                  });
+              });
+          }
+          
+          // Projects
+          if (resume.projects && resume.projects.length > 0) {
+              renderSection('Projects', () => {
+                   resume.projects.forEach(proj => {
+                        checkPageBreak(40);
+                        doc.setFont('helvetica', 'bold').setFontSize(11).text(proj.name, margin, y);
+                         if (proj.url) {
+                            doc.setFont('helvetica', 'normal').setTextColor(66, 133, 244).textWithLink('Link', pageWidth - margin, y, { url: proj.url, align: 'right' });
+                            doc.setTextColor(0,0,0);
+                         }
+                        y += 14;
+                        const descLines = doc.splitTextToSize(proj.description, contentWidth);
+                        doc.setFont('helvetica', 'normal').text(descLines, margin, y);
+                        y += descLines.length * 12 + 4;
+                        doc.setFont('helvetica', 'italic').text(`Technologies: ${proj.technologies.join(', ')}`, margin, y);
+                        y += 12;
+                   });
+              });
+          }
 
-      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-      heightLeft -= pdf.internal.pageSize.getHeight();
+          // Education
+          if (resume.education.length > 0) {
+              renderSection('Education', () => {
+                  resume.education.forEach(edu => {
+                      checkPageBreak(30);
+                      doc.setFont('helvetica', 'bold').setFontSize(11).text(edu.degree, margin, y);
+                      doc.setFont('helvetica', 'normal').text(edu.dates, pageWidth - margin, y, { align: 'right' });
+                      y += 14;
+                      doc.text(`${edu.school}, ${edu.location}`, margin, y);
+                      y += 14;
+                  });
+              });
+          }
 
-      while (heightLeft > 0) {
-        position -= pdf.internal.pageSize.getHeight();
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-        heightLeft -= pdf.internal.pageSize.getHeight();
+          // Custom Sections
+          if (resume.customSections && resume.customSections.length > 0) {
+            resume.customSections.forEach(sec => {
+              renderSection(sec.title, () => {
+                const contentLines = doc.splitTextToSize(sec.content, contentWidth);
+                checkPageBreak(contentLines.length * 12);
+                doc.setFontSize(10).text(contentLines, margin, y);
+                y += contentLines.length * 12;
+              });
+            });
+          }
+  
+          // Skills
+          renderSection('Skills', () => {
+              const skillsLines = doc.splitTextToSize(resume.skills.join(', '), contentWidth);
+              checkPageBreak(skillsLines.length * 12);
+              doc.setFontSize(10).text(skillsLines, margin, y);
+              y += skillsLines.length * 12;
+          });
+  
+          doc.save(`${resume.name.replace(/\s+/g, '_') || 'resume'}_${template}_resume.pdf`);
+      } catch (error) {
+          console.error("PDF Download failed:", error);
+          toast({ variant: "destructive", title: "Download Failed", description: "There was an error generating the PDF." });
+      } finally {
+          setIsDownloading(false);
       }
-
-      pdf.save(`${resume.name.replace(/\s+/g, "_") || "resume"}_resume.pdf`);
-    } catch (error) {
-      console.error("PDF Download failed:", error);
-      toast({ variant: "destructive", title: "Download Failed", description: "There was an error generating the PDF." });
-    } finally {
-      setIsDownloading(false);
-    }
   };
 
   const handleDownloadDocx = async () => {
@@ -329,6 +445,14 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
             children.push(new Paragraph(""));
         });
 
+        if (resume.customSections && resume.customSections.length > 0) {
+          resume.customSections.forEach(sec => {
+            children.push(new Paragraph({ text: sec.title, heading: HeadingLevel.HEADING_1 }));
+            children.push(new Paragraph({ children: createTextRuns(sec.content) }));
+            children.push(new Paragraph(""));
+          });
+        }
+
         children.push(new Paragraph({ text: "Skills", heading: HeadingLevel.HEADING_1 }));
         children.push(new Paragraph(resume.skills.join(", ")));
         children.push(new Paragraph(""));
@@ -357,7 +481,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
 
   const editorDisabled = isDownloading || isEnhancing;
   
-  const removeItem = (type: 'experience' | 'education' | 'websites' | 'projects', id: string) => {
+  const removeItem = (type: 'experience' | 'education' | 'websites' | 'projects' | 'customSections', id: string) => {
     handleUpdate(draft => {
       switch (type) {
         case 'experience':
@@ -367,10 +491,13 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
             draft.education = draft.education.filter(item => item.id !== id);
             break;
         case 'websites':
-            draft.websites = draft.websites.filter(item => item.id !== id);
+            draft.websites = (draft.websites || []).filter(item => item.id !== id);
             break;
         case 'projects':
-            draft.projects = draft.projects.filter(item => item.id !== id);
+            draft.projects = (draft.projects || []).filter(item => item.id !== id);
+            break;
+        case 'customSections':
+            draft.customSections = (draft.customSections || []).filter(item => item.id !== id);
             break;
       }
     });
@@ -423,7 +550,6 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                 </div>
             )
             break;
-        // Add other cases for education, projects, etc.
         case 'new_education':
         case 'education':
              title = editingSection.type === 'new_education' ? "Add Education" : "Edit Education";
@@ -458,6 +584,16 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                 </div>
              );
              break;
+        case 'new_customSection':
+        case 'customSections':
+            title = editingSection.type === 'new_customSection' ? "Add Custom Section" : "Edit Custom Section";
+            content = (
+                <div className="space-y-4">
+                    <CustomInput label="Section Title" value={editFormData.title} onChange={e => setEditFormData({...editFormData, title: e.target.value})} />
+                    <CustomTextarea label="Content" value={editFormData.content} onChange={e => setEditFormData({...editFormData, content: e.target.value})} rows={6} />
+                </div>
+            );
+            break;
         case 'skills':
             title = "Edit Skills";
             content = (
@@ -568,6 +704,14 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                             <SelectContent>
                                 <SelectItem value="modern">Modern</SelectItem>
                                 <SelectItem value="classic">Classic</SelectItem>
+                                <SelectItem value="professional">Professional</SelectItem>
+                                <SelectItem value="executive">Executive</SelectItem>
+                                <SelectItem value="minimalist">Minimalist</SelectItem>
+                                <SelectItem value="creative">Creative</SelectItem>
+                                <SelectItem value="academic">Academic</SelectItem>
+                                <SelectItem value="technical">Technical</SelectItem>
+                                <SelectItem value="elegant">Elegant</SelectItem>
+                                <SelectItem value="compact">Compact</SelectItem>
                             </SelectContent>
                         </Select>
                     </CardContent>
@@ -580,6 +724,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                        <Button variant="outline" onClick={() => handleEdit({ type: 'new_education' })}><PlusCircle/>Education</Button>
                        <Button variant="outline" onClick={() => handleEdit({ type: 'new_project' })}><PlusCircle/>Project</Button>
                        <Button variant="outline" onClick={() => handleEdit({ type: 'new_website' })}><PlusCircle/>Website</Button>
+                       <Button variant="outline" onClick={() => handleEdit({ type: 'new_customSection' })}><PlusCircle/>Custom Section</Button>
                     </CardContent>
                 </Card>
             </aside>

@@ -98,6 +98,7 @@ export function ResumeOptimizer({ onComplete, onProcessing, isProcessing }: Resu
         projects: (structuredResult.projects || []).map((proj) => ({ ...proj, id: crypto.randomUUID() })),
         achievements: structuredResult.achievements || [],
         hobbies: structuredResult.hobbies || [],
+        customSections: (structuredResult.customSections || []).map((sec) => ({ ...sec, id: crypto.randomUUID() })),
       };
 
       onComplete(resumeWithIds);

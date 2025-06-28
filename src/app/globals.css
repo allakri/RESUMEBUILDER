@@ -76,27 +76,36 @@
     line-height: 1.5;
   }
 
-  /* Classic Resume Template Styles */
+  /* Base styles for all templates */
+  .template-base .name { @apply font-bold; }
+  .template-base .contact-info { @apply text-xs; }
+  .template-base .section-title { @apply font-bold uppercase tracking-wider; }
+  .template-base .entry { @apply mb-3; }
+  .template-base h3 { @apply text-base font-semibold; }
+  .template-base .responsibilities { @apply list-disc pl-5 mt-1 text-sm space-y-1; }
+  .template-base section { @apply mb-4; }
+  .template-base .dates, .template-base .location { @apply text-xs font-light; }
+  .template-base .company, .template-base .school { @apply font-medium; }
+  .template-base .degree, .template-base .title { @apply font-bold; }
+  .template-base a { @apply text-blue-600; }
+  .dark .template-base a { @apply text-blue-400; }
+
+
+  /* 1. Classic Resume Template Styles */
   .template-classic {
     @apply font-serif;
   }
   .template-classic .name {
-    @apply text-4xl font-bold text-center border-b-2 border-black pb-2 mb-1;
+    @apply text-4xl text-center border-b-2 border-black pb-2 mb-1;
   }
   .template-classic .contact-info {
-    @apply text-center text-sm;
+    @apply text-center text-sm mb-4;
   }
   .template-classic .section-title {
-    @apply text-base font-bold uppercase tracking-widest border-b border-black pb-1 mb-3 mt-4;
-  }
-  .template-classic .entry {
-    @apply mb-3;
-  }
-  .template-classic h3 {
-    @apply text-base;
+    @apply text-base border-b border-black pb-1 mb-3 mt-4;
   }
 
-  /* Modern Resume Template Styles */
+  /* 2. Modern Resume Template Styles */
   .template-modern {
     @apply font-sans;
   }
@@ -104,18 +113,83 @@
     @apply text-5xl font-semibold text-gray-800;
   }
   .template-modern .header {
-    @apply border-b-2 border-gray-200 pb-4;
+    @apply border-b-2 border-gray-200 pb-4 mb-6;
   }
   .template-modern .contact-info {
     @apply text-gray-600;
   }
   .template-modern .section-title {
-    @apply text-xs font-bold uppercase tracking-wider text-gray-600 border-none pb-1 mb-4;
+    @apply text-xs text-gray-600 border-none pb-1 mb-4 pl-4;
   }
-  .template-modern section {
+  .template-modern section:not(:first-of-type) {
     @apply pl-4 border-l-2 border-gray-300;
   }
-  .template-modern h3 {
-    @apply text-base;
+
+  /* 3. Professional Template */
+  .template-professional {
+    @apply font-sans;
   }
+  .template-professional .name {
+    @apply text-3xl text-primary;
+  }
+  .template-professional .header {
+    @apply mb-4 text-center;
+  }
+  .template-professional .section-title {
+    @apply text-sm text-primary border-b-2 border-primary pb-1 mb-2;
+  }
+
+  /* 4. Executive Template */
+  .template-executive {
+    @apply font-serif;
+  }
+  .template-executive .header { @apply flex justify-between items-center border-b-4 border-gray-700 pb-2 mb-4; }
+  .template-executive .name { @apply text-4xl; }
+  .template-executive .contact-info { @apply text-right text-xs; }
+  .template-executive .section-title { @apply text-lg text-gray-700; }
+
+  /* 5. Minimalist Template */
+  .template-minimalist {
+    @apply font-sans font-light;
+  }
+  .template-minimalist .name { @apply text-2xl font-normal tracking-widest text-center uppercase; }
+  .template-minimalist .contact-info { @apply text-center text-xs mb-6; }
+  .template-minimalist .section-title { @apply font-normal tracking-widest text-sm mb-3; }
+  .template-minimalist .entry h3, .template-minimalist .entry .company { @apply font-normal; }
+
+  /* 6. Creative Template */
+  .template-creative { @apply font-sans; }
+  .template-creative .header { @apply p-4 bg-gray-100 dark:bg-gray-800 text-center; }
+  .template-creative .name { @apply text-4xl text-primary; }
+  .template-creative .section-title { @apply text-right text-primary font-light text-lg border-b border-primary pb-1; }
+  .template-creative section { @apply mt-6; }
+
+  /* 7. Academic Template */
+  .template-academic { @apply font-serif; }
+  .template-academic .name { @apply text-3xl text-center; }
+  .template-academic .contact-info { @apply text-center text-sm border-y border-gray-300 my-2 py-1; }
+  .template-academic .section-title { @apply font-serif text-base font-normal italic; }
+  .template-academic .entry { @apply mb-2; }
+
+  /* 8. Technical Template */
+  .template-technical { @apply font-mono text-sm; }
+  .template-technical .name { @apply text-2xl; }
+  .template-technical .section-title { @apply text-base; }
+  .template-technical .skills p, .template-technical .projects .italic { @apply font-sans; }
+
+  /* 9. Elegant Template */
+  .template-elegant { font-family: 'Garamond', serif; }
+  .template-elegant .name { @apply text-4xl text-center tracking-wider; }
+  .template-elegant .contact-info { @apply text-center text-xs tracking-widest uppercase; }
+  .template-elegant .section-title { @apply text-center text-sm tracking-widest uppercase my-4; }
+  .template-elegant .section-title::after { @apply block w-12 h-px bg-gray-400 mx-auto mt-1; content: ''; }
+  
+  /* 10. Compact Template */
+  .template-compact { @apply font-sans text-xs; }
+  .template-compact .name { @apply text-2xl; }
+  .template-compact .contact-info { @apply text-xs; }
+  .template-compact section { @apply mb-2; }
+  .template-compact .entry { @apply mb-1; }
+  .template-compact .section-title { @apply text-sm border-b border-gray-300 mb-1 pb-px; }
+  .template-compact .responsibilities { @apply mt-0; }
 }
