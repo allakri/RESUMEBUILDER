@@ -8,15 +8,20 @@
  */
 
 import {ai} from '@/ai/genkit';
+import {z} from 'genkit';
 import {ResumeSchema, type ResumeData} from '@/ai/resume-schema';
 
 export async function enhanceResume(input: ResumeData): Promise<ResumeData> {
   return enhanceResumeFlow(input);
 }
 
+const PromptInputSchema = z.object({
+    resumeJson: z.string()
+});
+
 const prompt = ai.definePrompt({
   name: 'enhanceResumePrompt',
-  input: {schema: ResumeSchema},
+  input: {schema: PromptInputSchema},
   output: {schema: ResumeSchema},
   prompt: `You are an expert resume writer and career coach. 
   Your task is to enhance the provided resume data. 
@@ -29,7 +34,7 @@ const prompt = ai.definePrompt({
   - Return the full, updated resume data in the exact same JSON format.
 
   Resume Data:
-  {{{jsonStringify this}}}
+  {{{resumeJson}}}
   `,
 });
 
@@ -40,7 +45,7 @@ const enhanceResumeFlow = ai.defineFlow(
     outputSchema: ResumeSchema,
   },
   async input => {
-    const {output} = await prompt(input);
+    const {output} = await prompt({ resumeJson: JSON.stringify(input) });
     return output!;
   }
 );

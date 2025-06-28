@@ -25,9 +25,14 @@ export async function chatEnhanceResume(
   return chatEnhanceResumeFlow(input);
 }
 
+const PromptInputSchema = z.object({
+    resumeJson: z.string(),
+    query: z.string(),
+});
+
 const prompt = ai.definePrompt({
   name: 'chatEnhanceResumePrompt',
-  input: {schema: ChatEnhanceResumeInputSchema},
+  input: {schema: PromptInputSchema},
   output: {schema: ResumeSchema},
   prompt: `You are an expert resume writer and career coach. A user has provided their current resume data (in JSON format) and a request to modify it.
 Your task is to update the resume JSON based on the user's request and return the full, updated resume data in the exact same JSON format.
@@ -41,7 +46,7 @@ User's Request:
 {{{query}}}
 
 Current Resume Data:
-{{{jsonStringify resume}}}
+{{{resumeJson}}}
   `,
 });
 
@@ -51,8 +56,11 @@ const chatEnhanceResumeFlow = ai.defineFlow(
     inputSchema: ChatEnhanceResumeInputSchema,
     outputSchema: ResumeSchema,
   },
-  async input => {
-    const {output} = await prompt(input);
+  async (input) => {
+    const {output} = await prompt({
+        query: input.query,
+        resumeJson: JSON.stringify(input.resume)
+    });
     return output!;
   }
 );
