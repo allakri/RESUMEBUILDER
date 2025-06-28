@@ -120,11 +120,16 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
         dataToEdit = { summary: resume.summary };
         break;
       case 'experience':
+        dataToEdit = resume.experience?.find(item => item.id === section.id);
+        break;
       case 'education':
+        dataToEdit = resume.education?.find(item => item.id === section.id);
+        break;
       case 'websites':
+        dataToEdit = resume.websites?.find(item => item.id === section.id);
+        break;
       case 'projects':
-        const sectionKey = `${section.type}s` as 'experience' | 'education' | 'websites' | 'projects';
-        dataToEdit = (resume[sectionKey] as any[])?.find(item => item.id === section.id);
+        dataToEdit = resume.projects?.find(item => item.id === section.id);
         break;
       case 'new_experience':
         dataToEdit = { title: "", company: "", location: "", dates: "", responsibilities: [""] };
@@ -175,14 +180,26 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
         case 'summary':
             draft.summary = editFormData.summary;
             break;
-        case 'experience':
-        case 'education':
-        case 'websites':
-        case 'projects':
-            const keyWithS = (editingSection.type + 's') as 'experience' | 'education' | 'websites' | 'projects';
-            const index = draft[keyWithS].findIndex(item => item.id === editingSection.id);
-            if (index > -1) draft[keyWithS][index] = editFormData;
+        case 'experience': {
+            const index = draft.experience.findIndex(item => item.id === editingSection.id);
+            if (index > -1) draft.experience[index] = editFormData;
             break;
+        }
+        case 'education': {
+            const index = draft.education.findIndex(item => item.id === editingSection.id);
+            if (index > -1) draft.education[index] = editFormData;
+            break;
+        }
+        case 'websites': {
+            const index = draft.websites.findIndex(item => item.id === editingSection.id);
+            if (index > -1) draft.websites[index] = editFormData;
+            break;
+        }
+        case 'projects': {
+            const index = draft.projects.findIndex(item => item.id === editingSection.id);
+            if (index > -1) draft.projects[index] = editFormData;
+            break;
+        }
         case 'new_experience':
             draft.experience.push({ ...editFormData, id: crypto.randomUUID() });
             break;
@@ -342,8 +359,20 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
   
   const removeItem = (type: 'experience' | 'education' | 'websites' | 'projects', id: string) => {
     handleUpdate(draft => {
-      const key = (type + 's') as 'experience' | 'education' | 'websites' | 'projects';
-      (draft[key] as any[]) = (draft[key] as any[]).filter(item => item.id !== id);
+      switch (type) {
+        case 'experience':
+            draft.experience = draft.experience.filter(item => item.id !== id);
+            break;
+        case 'education':
+            draft.education = draft.education.filter(item => item.id !== id);
+            break;
+        case 'websites':
+            draft.websites = draft.websites.filter(item => item.id !== id);
+            break;
+        case 'projects':
+            draft.projects = draft.projects.filter(item => item.id !== id);
+            break;
+      }
     });
   }
 
