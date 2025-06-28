@@ -142,7 +142,7 @@ export const ResumePreview = React.forwardRef<HTMLDivElement, ResumePreviewProps
           <section className="relative group">
             <h2 className="section-title">Skills</h2>
             <p className="text-sm">{resume.skills.join(" | ")}</p>
-             {isEditable && <EditButton onEdit={() => alert("Skill editing happens in the main editor panel for now.")} />}
+             {isEditable && <EditButton onEdit={() => handleEdit('skills')} />}
           </section>
 
           {resume.achievements && resume.achievements.length > 0 && (
@@ -151,7 +151,7 @@ export const ResumePreview = React.forwardRef<HTMLDivElement, ResumePreviewProps
               <ul className="list-disc pl-5 text-sm space-y-1">
                 {resume.achievements.map((ach, i) => <li key={i}>{ach}</li>)}
               </ul>
-              {isEditable && <EditButton onEdit={() => alert("Achievement editing happens in the main editor panel for now.")} />}
+              {isEditable && <EditButton onEdit={() => handleEdit('achievements')} />}
             </section>
           )}
 
@@ -159,7 +159,7 @@ export const ResumePreview = React.forwardRef<HTMLDivElement, ResumePreviewProps
             <section className="mt-6 relative group">
               <h2 className="section-title">Hobbies & Interests</h2>
               <p className="text-sm">{resume.hobbies.join(" | ")}</p>
-              {isEditable && <EditButton onEdit={() => alert("Hobby editing happens in the main editor panel for now.")} />}
+              {isEditable && <EditButton onEdit={() => handleEdit('hobbies')} />}
             </section>
           )}
         </main>

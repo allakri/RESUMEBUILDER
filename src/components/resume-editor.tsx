@@ -110,19 +110,55 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
   };
 
   const handleEdit = (section: EditableSection) => {
-    let dataToEdit = null;
-    if ('id' in section) {
-      const sectionKey = (section.type + 's') as 'experience' | 'education' | 'websites' | 'projects';
-      dataToEdit = (resume[sectionKey] as any[])?.find(item => item.id === section.id);
-    } else if (section.type === 'contact') {
-        dataToEdit = { name: resume.name, email: resume.email, phone: resume.phone }
-    } else if (section.type === 'summary') {
+    let dataToEdit: any;
+
+    switch (section.type) {
+      case 'contact':
+        dataToEdit = { name: resume.name, email: resume.email, phone: resume.phone };
+        break;
+      case 'summary':
         dataToEdit = { summary: resume.summary };
-    } else {
-        // For simple arrays or new items
-        dataToEdit = resume[section.type as keyof typeof resume];
+        break;
+      case 'experience':
+      case 'education':
+      case 'websites':
+      case 'projects':
+        const sectionKey = `${section.type}s` as 'experience' | 'education' | 'websites' | 'projects';
+        dataToEdit = (resume[sectionKey] as any[])?.find(item => item.id === section.id);
+        break;
+      case 'new_experience':
+        dataToEdit = { title: "", company: "", location: "", dates: "", responsibilities: [""] };
+        break;
+      case 'new_education':
+        dataToEdit = { degree: "", school: "", location: "", dates: "" };
+        break;
+      case 'new_website':
+        dataToEdit = { name: "", url: "" };
+        break;
+      case 'new_project':
+        dataToEdit = { name: "", description: "", technologies: [], url: "" };
+        break;
+      case 'skills':
+      case 'hobbies':
+      case 'achievements':
+        dataToEdit = resume[section.type] ?? [];
+        break;
+      default:
+        console.error("Unhandled section type in handleEdit:", section);
+        return;
     }
-    setEditFormData(JSON.parse(JSON.stringify(dataToEdit))); // Deep copy
+
+    if (typeof dataToEdit === 'undefined') {
+        console.error("Data to edit is undefined for section:", section);
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Could not find the item to edit. It may have been deleted.",
+        });
+        return;
+    }
+
+    setEditFormData(JSON.parse(JSON.stringify(dataToEdit ?? null)));
     setEditingSection(section);
   };
   
@@ -321,25 +357,25 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
             title = "Edit Contact Information"
             content = (
                 <div className="space-y-4">
-                    <Input label="Name" value={editFormData.name} onChange={(e) => setEditFormData({...editFormData, name: e.target.value})} />
-                    <Input label="Email" value={editFormData.email} onChange={(e) => setEditFormData({...editFormData, email: e.target.value})} />
-                    <Input label="Phone" value={editFormData.phone} onChange={(e) => setEditFormData({...editFormData, phone: e.target.value})} />
+                    <CustomInput label="Name" value={editFormData.name} onChange={(e) => setEditFormData({...editFormData, name: e.target.value})} />
+                    <CustomInput label="Email" value={editFormData.email} onChange={(e) => setEditFormData({...editFormData, email: e.target.value})} />
+                    <CustomInput label="Phone" value={editFormData.phone} onChange={(e) => setEditFormData({...editFormData, phone: e.target.value})} />
                 </div>
             );
             break;
         case 'summary':
             title = "Edit Summary"
-            content = <Textarea value={editFormData.summary} onChange={(e) => setEditFormData({summary: e.target.value})} rows={6} />;
+            content = <CustomTextarea value={editFormData.summary} onChange={(e) => setEditFormData({summary: e.target.value})} rows={6} />;
             break;
         case 'new_experience':
         case 'experience':
             title = editingSection.type === 'new_experience' ? "Add Experience" : "Edit Experience";
             content = (
                 <div className="space-y-4">
-                    <Input label="Title" value={editFormData.title} onChange={(e) => setEditFormData({...editFormData, title: e.target.value})} />
-                    <Input label="Company" value={editFormData.company} onChange={(e) => setEditFormData({...editFormData, company: e.target.value})} />
-                    <Input label="Location" value={editFormData.location} onChange={(e) => setEditFormData({...editFormData, location: e.target.value})} />
-                    <Input label="Dates" value={editFormData.dates} onChange={(e) => setEditFormData({...editFormData, dates: e.target.value})} />
+                    <CustomInput label="Title" value={editFormData.title} onChange={(e) => setEditFormData({...editFormData, title: e.target.value})} />
+                    <CustomInput label="Company" value={editFormData.company} onChange={(e) => setEditFormData({...editFormData, company: e.target.value})} />
+                    <CustomInput label="Location" value={editFormData.location} onChange={(e) => setEditFormData({...editFormData, location: e.target.value})} />
+                    <CustomInput label="Dates" value={editFormData.dates} onChange={(e) => setEditFormData({...editFormData, dates: e.target.value})} />
                     <label className="block text-sm font-medium text-foreground">Responsibilities</label>
                     {editFormData.responsibilities.map((resp: string, index: number) => (
                         <div key={index} className="flex items-center gap-2">
@@ -364,10 +400,10 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
              title = editingSection.type === 'new_education' ? "Add Education" : "Edit Education";
              content = (
                 <div className="space-y-4">
-                    <Input label="Degree" value={editFormData.degree} onChange={e => setEditFormData({...editFormData, degree: e.target.value})} />
-                    <Input label="School" value={editFormData.school} onChange={e => setEditFormData({...editFormData, school: e.target.value})} />
-                    <Input label="Location" value={editFormData.location} onChange={e => setEditFormData({...editFormData, location: e.target.value})} />
-                    <Input label="Dates" value={editFormData.dates} onChange={e => setEditFormData({...editFormData, dates: e.target.value})} />
+                    <CustomInput label="Degree" value={editFormData.degree} onChange={e => setEditFormData({...editFormData, degree: e.target.value})} />
+                    <CustomInput label="School" value={editFormData.school} onChange={e => setEditFormData({...editFormData, school: e.target.value})} />
+                    <CustomInput label="Location" value={editFormData.location} onChange={e => setEditFormData({...editFormData, location: e.target.value})} />
+                    <CustomInput label="Dates" value={editFormData.dates} onChange={e => setEditFormData({...editFormData, dates: e.target.value})} />
                 </div>
              );
              break;
@@ -376,10 +412,10 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
             title = editingSection.type === 'new_project' ? "Add Project" : "Edit Project";
             content = (
                 <div className="space-y-4">
-                    <Input label="Project Name" value={editFormData.name} onChange={e => setEditFormData({...editFormData, name: e.target.value})} />
-                    <Input label="Project URL" value={editFormData.url} onChange={e => setEditFormData({...editFormData, url: e.target.value})} />
-                    <Textarea label="Description" value={editFormData.description} onChange={e => setEditFormData({...editFormData, description: e.target.value})} rows={4} />
-                    <Input label="Technologies (comma-separated)" value={(editFormData.technologies || []).join(", ")} onChange={e => setEditFormData({...editFormData, technologies: e.target.value.split(',').map(t => t.trim())})} />
+                    <CustomInput label="Project Name" value={editFormData.name} onChange={e => setEditFormData({...editFormData, name: e.target.value})} />
+                    <CustomInput label="Project URL" value={editFormData.url} onChange={e => setEditFormData({...editFormData, url: e.target.value})} />
+                    <CustomTextarea label="Description" value={editFormData.description} onChange={e => setEditFormData({...editFormData, description: e.target.value})} rows={4} />
+                    <CustomInput label="Technologies (comma-separated)" value={(editFormData.technologies || []).join(", ")} onChange={e => setEditFormData({...editFormData, technologies: e.target.value.split(',').map(t => t.trim())})} />
                 </div>
             )
             break;
@@ -388,11 +424,57 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
              title = editingSection.type === 'new_website' ? "Add Website" : "Edit Website";
              content = (
                 <div className="space-y-4">
-                    <Input label="Name" value={editFormData.name} onChange={e => setEditFormData({...editFormData, name: e.target.value})} placeholder="e.g. LinkedIn, GitHub" />
-                    <Input label="URL" value={editFormData.url} onChange={e => setEditFormData({...editFormData, url: e.target.value})} />
+                    <CustomInput label="Name" value={editFormData.name} onChange={e => setEditFormData({...editFormData, name: e.target.value})} placeholder="e.g. LinkedIn, GitHub" />
+                    <CustomInput label="URL" value={editFormData.url} onChange={e => setEditFormData({...editFormData, url: e.target.value})} />
                 </div>
              );
              break;
+        case 'skills':
+            title = "Edit Skills";
+            content = (
+                <CustomTextarea
+                    label="Skills (comma-separated)"
+                    value={(editFormData || []).join(', ')}
+                    onChange={(e) => setEditFormData(e.target.value.split(',').map(s => s.trim()))}
+                    rows={4}
+                    placeholder="e.g. React, TypeScript, Project Management"
+                />
+            );
+            break;
+        case 'achievements':
+            title = "Edit Achievements";
+            content = (
+                <div className="space-y-2">
+                    <label className="block text-sm font-medium text-foreground">Achievements</label>
+                    {(editFormData || []).map((ach: string, index: number) => (
+                        <div key={index} className="flex items-center gap-2">
+                            <Textarea value={ach} onChange={(e) => {
+                                const newAch = [...editFormData];
+                                newAch[index] = e.target.value;
+                                setEditFormData(newAch);
+                            }} rows={2}/>
+                            <Button variant="ghost" size="icon" onClick={() => {
+                                 const newAch = editFormData.filter((_:any, i:number) => i !== index);
+                                 setEditFormData(newAch);
+                            }}><Trash2 /></Button>
+                        </div>
+                    ))}
+                    <Button variant="outline" size="sm" onClick={() => setEditFormData([...(editFormData || []), ""])}><PlusCircle className="mr-2"/> Add Achievement</Button>
+                </div>
+            );
+            break;
+        case 'hobbies':
+            title = "Edit Hobbies & Interests";
+            content = (
+                 <CustomTextarea
+                    label="Hobbies (comma-separated)"
+                    value={(editFormData || []).join(', ')}
+                    onChange={(e) => setEditFormData(e.target.value.split(',').map(s => s.trim()))}
+                    rows={4}
+                    placeholder="e.g. Hiking, Reading, Photography"
+                />
+            );
+            break;
     }
     
     return (
@@ -497,7 +579,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
 }
 
 // Re-add label prop to Input and Textarea for use in modals
-const CustomInput = React.forwardRef<HTMLInputElement, {label?:string} & React.ComponentProps<"input">>(({ className, type, label, ...props }, ref) => {
+const CustomInput = React.forwardRef<HTMLInputElement, {label?:string} & React.ComponentProps<typeof Input>>(({ className, type, label, ...props }, ref) => {
     const id = React.useId();
     if (!label) {
         return <Input type={type} className={className} ref={ref} {...props}/>
@@ -511,7 +593,7 @@ const CustomInput = React.forwardRef<HTMLInputElement, {label?:string} & React.C
 });
 CustomInput.displayName = "Input";
 
-const CustomTextarea = React.forwardRef<HTMLTextAreaElement, {label?: string} & React.ComponentProps<"textarea">>(({ className, label, ...props }, ref) => {
+const CustomTextarea = React.forwardRef<HTMLTextAreaElement, {label?: string} & React.ComponentProps<typeof Textarea>>(({ className, label, ...props }, ref) => {
     const id = React.useId();
     if (!label) {
         return <Textarea className={className} ref={ref} {...props} />
