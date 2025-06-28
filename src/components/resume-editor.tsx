@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useRef, useState } from "react";
@@ -46,7 +47,8 @@ import {
 } from "@/components/ui/dialog";
 import { ResumePreview } from "./resume-preview";
 import { ScrollArea } from "./ui/scroll-area";
-import { Card } from "./ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { cn } from "@/lib/utils";
 
 interface ResumeEditorProps {
   initialResumeData: ResumeDataWithIds;
@@ -110,7 +112,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
   const handleEdit = (section: EditableSection) => {
     let dataToEdit = null;
     if ('id' in section) {
-      const sectionKey = (section.type + 's') as 'experiences' | 'educations' | 'websites' | 'projects';
+      const sectionKey = (section.type + 's') as 'experience' | 'education' | 'websites' | 'projects';
       dataToEdit = (resume[sectionKey] as any[])?.find(item => item.id === section.id);
     } else if (section.type === 'contact') {
         dataToEdit = { name: resume.name, email: resume.email, phone: resume.phone }
@@ -141,7 +143,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
         case 'education':
         case 'websites':
         case 'projects':
-            const keyWithS = (editingSection.type + 's') as 'experiences' | 'educations' | 'websites' | 'projects';
+            const keyWithS = (editingSection.type + 's') as 'experience' | 'education' | 'websites' | 'projects';
             const index = draft[keyWithS].findIndex(item => item.id === editingSection.id);
             if (index > -1) draft[keyWithS][index] = editFormData;
             break;
@@ -304,7 +306,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
   
   const removeItem = (type: 'experience' | 'education' | 'websites' | 'projects', id: string) => {
     handleUpdate(draft => {
-      const key = (type + 's') as 'experiences' | 'educations' | 'websites' | 'projects';
+      const key = (type + 's') as 'experience' | 'education' | 'websites' | 'projects';
       (draft[key] as any[]) = (draft[key] as any[]).filter(item => item.id !== id);
     });
   }
@@ -409,22 +411,6 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
     )
   }
 
-  // Extend Input to have a label prop
-  const InputWithLabel = ({label, ...props}: {label: string} & React.ComponentProps<typeof Input>) => (
-    <div>
-        <label className="block text-sm font-medium text-foreground mb-1">{label}</label>
-        <Input {...props} />
-    </div>
-  )
-  // Extend Textarea to have a label prop
-  const TextareaWithLabel = ({label, ...props}: {label: string} & React.ComponentProps<typeof Textarea>) => (
-    <div>
-        <label className="block text-sm font-medium text-foreground mb-1">{label}</label>
-        <Textarea {...props} />
-    </div>
-  )
-
-
   return (
      <div className="flex h-screen bg-background">
       {/* Editor Column */}
@@ -511,30 +497,30 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
 }
 
 // Re-add label prop to Input and Textarea for use in modals
-const Input = React.forwardRef<HTMLInputElement, {label?:string} & React.ComponentProps<"input">>(({ className, type, label, ...props }, ref) => {
+const CustomInput = React.forwardRef<HTMLInputElement, {label?:string} & React.ComponentProps<"input">>(({ className, type, label, ...props }, ref) => {
     const id = React.useId();
     if (!label) {
-        return <input type={type} className={cn("flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm", className)} ref={ref} {...props}/>
+        return <Input type={type} className={className} ref={ref} {...props}/>
     }
     return (
         <div className="grid w-full items-center gap-1.5">
             <label htmlFor={id} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">{label}</label>
-            <input id={id} type={type} className={cn("flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm", className)} ref={ref} {...props} />
+            <Input id={id} type={type} className={className} ref={ref} {...props} />
         </div>
     );
 });
-Input.displayName = "Input";
+CustomInput.displayName = "Input";
 
-const Textarea = React.forwardRef<HTMLTextAreaElement, {label?: string} & React.ComponentProps<"textarea">>(({ className, label, ...props }, ref) => {
+const CustomTextarea = React.forwardRef<HTMLTextAreaElement, {label?: string} & React.ComponentProps<"textarea">>(({ className, label, ...props }, ref) => {
     const id = React.useId();
     if (!label) {
-        return <textarea className={cn('flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm', className)} ref={ref} {...props} />
+        return <Textarea className={className} ref={ref} {...props} />
     }
     return (
       <div className="grid w-full gap-1.5">
         <label htmlFor={id} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">{label}</label>
-        <textarea id={id} className={cn('flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm', className)} ref={ref} {...props} />
+        <Textarea id={id} className={className} ref={ref} {...props} />
       </div>
     )
 });
-Textarea.displayName = "Textarea";
+CustomTextarea.displayName = "Textarea";
