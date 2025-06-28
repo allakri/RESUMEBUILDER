@@ -58,15 +58,25 @@ interface ResumeEditorProps {
 // Helper to ensure all list items have a client-side ID.
 // The AI may create new items without an ID, so we need to add one.
 const assignIdsToResume = (resume: ResumeData): ResumeDataWithIds => {
-    const ensureIds = (arr: any[] = []) => arr.map(item => ({ ...item, id: item.id || crypto.randomUUID() }));
+    const ensureUniqueIds = (arr: any[] = []) => {
+        const seenIds = new Set<string>();
+        return (arr || []).map(item => {
+            let newId = item.id || crypto.randomUUID();
+            while (seenIds.has(newId)) {
+                newId = crypto.randomUUID();
+            }
+            seenIds.add(newId);
+            return { ...item, id: newId };
+        });
+    };
 
     return {
         ...resume,
-        experience: ensureIds(resume.experience),
-        education: ensureIds(resume.education),
-        websites: ensureIds(resume.websites),
-        projects: ensureIds(resume.projects),
-        customSections: ensureIds(resume.customSections),
+        experience: ensureUniqueIds(resume.experience),
+        education: ensureUniqueIds(resume.education),
+        websites: ensureUniqueIds(resume.websites || []),
+        projects: ensureUniqueIds(resume.projects || []),
+        customSections: ensureUniqueIds(resume.customSections || []),
         // Ensure optional fields that are just string arrays exist
         skills: resume.skills || [],
         achievements: resume.achievements || [],
