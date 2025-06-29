@@ -27,6 +27,7 @@ import {
 import { saveAs } from "file-saver";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
 import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 import type { ResumeData, ResumeDataWithIds } from "@/ai/resume-schema";
 import { enhanceResume } from "@/ai/flows/enhance-resume";
 import { chatEnhanceResume } from "@/ai/flows/chat-enhance-resume";
@@ -156,6 +157,8 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
   const [activeView, setActiveView] = useState<'editor' | 'preview'>('editor');
   const [activeSection, setActiveSection] = useState<string>('contact');
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+  const previewRef = useRef<HTMLDivElement>(null);
 
 
   const handleUpdate = (updater: (draft: ResumeDataWithIds) => void) => {
@@ -420,150 +423,61 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
 
   const handleDownloadPdf = async () => {
       setIsDownloading(true);
+      const elementToCapture = previewRef.current;
+  
+      if (!elementToCapture) {
+          toast({
+              variant: "destructive",
+              title: "Preview Not Found",
+              description: "Could not find the preview element to generate the PDF.",
+          });
+          setIsDownloading(false);
+          return;
+      }
+  
       try {
-          const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
-          const pageWidth = doc.internal.pageSize.getWidth();
-          const margin = 40;
-          const contentWidth = pageWidth - margin * 2;
-          let y = margin;
-  
-          const checkPageBreak = (height: number) => {
-              if (y + height > doc.internal.pageSize.getHeight() - margin) {
-                  doc.addPage();
-                  y = margin;
-              }
-          };
-  
-          doc.setFont('helvetica', 'bold').setFontSize(22).text(resume.name, pageWidth / 2, y, { align: 'center' });
-          y += 25;
+          const canvas = await html2canvas(elementToCapture, {
+              scale: 3, // Higher scale for better resolution
+              useCORS: true,
+              backgroundColor: '#ffffff', // Ensure background is white for capture
+          });
           
-          const contactParts = [resume.email, resume.phone].filter(Boolean);
-          if (resume.websites && resume.websites.length > 0) {
-              resume.websites.forEach(w => contactParts.push(w.url));
-          }
-          const contactInfo = contactParts.join(' | ');
-          doc.setFont('helvetica', 'normal').setFontSize(10).text(contactInfo, pageWidth / 2, y, { align: 'center' });
-          y += 30;
+          const imgData = canvas.toDataURL('image/png');
+          const pdf = new jsPDF({
+              orientation: 'portrait',
+              unit: 'pt',
+              format: 'a4',
+          });
+          
+          const pdfWidth = pdf.internal.pageSize.getWidth();
+          const pdfHeight = pdf.internal.pageSize.getHeight();
+          
+          const canvasWidth = canvas.width;
+          const canvasHeight = canvas.height;
+          
+          // Maintain aspect ratio
+          const imgHeight = (canvasHeight * pdfWidth) / canvasWidth;
+          let heightLeft = imgHeight;
+          let position = 0;
   
-          const renderSection = (title: string, body: () => void) => {
-              checkPageBreak(40);
-              doc.setFont('helvetica', 'bold').setFontSize(12).text(title.toUpperCase(), margin, y);
-              doc.setDrawColor(0).setLineWidth(1).line(margin, y + 3, contentWidth + margin, y + 3);
-              y += 20;
-              body();
-              y += 15;
-          };
+          pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+          heightLeft -= pdfHeight;
   
-          if(resume.summary) {
-            renderSection('Summary', () => {
-                const summaryLines = doc.splitTextToSize(resume.summary, contentWidth);
-                checkPageBreak(summaryLines.length * 12);
-                doc.setFontSize(10).setFont('helvetica', 'normal').text(summaryLines, margin, y);
-                y += summaryLines.length * 12;
-            });
-          }
-  
-          if (resume.experience.length > 0) {
-              renderSection('Experience', () => {
-                  resume.experience.forEach(exp => {
-                      checkPageBreak(50);
-                      doc.setFont('helvetica', 'bold').setFontSize(11).text(exp.title, margin, y);
-                      doc.setFont('helvetica', 'normal').text(exp.dates, pageWidth - margin, y, { align: 'right' });
-                      y += 14;
-                      doc.setFont('helvetica', 'bold').text(exp.company, margin, y);
-                      doc.setFont('helvetica', 'normal').text(exp.location, pageWidth - margin, y, { align: 'right' });
-                      y += 14;
-  
-                      exp.responsibilities.forEach(resp => {
-                          const respLines = doc.splitTextToSize(`• ${resp}`, contentWidth - 10);
-                          checkPageBreak(respLines.length * 12 + 2);
-                          doc.text(respLines, margin + 10, y);
-                          y += respLines.length * 12 + 2;
-                      });
-                      y += 10;
-                  });
-              });
+          while (heightLeft > 0) {
+              position -= pdfHeight;
+              pdf.addPage();
+              pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+              heightLeft -= pdfHeight;
           }
           
-          if (resume.projects && resume.projects.length > 0) {
-              renderSection('Projects', () => {
-                   resume.projects.forEach(proj => {
-                        checkPageBreak(40);
-                        doc.setFont('helvetica', 'bold').setFontSize(11).text(proj.name, margin, y);
-                         if (proj.url) {
-                            doc.setFont('helvetica', 'normal').setTextColor(66, 133, 244).textWithLink('Link', pageWidth - margin, y, { url: proj.url, align: 'right' });
-                            doc.setTextColor(0,0,0);
-                         }
-                        y += 14;
-                        const descLines = doc.splitTextToSize(proj.description, contentWidth);
-                        checkPageBreak(descLines.length * 12 + 16);
-                        doc.setFont('helvetica', 'normal').text(descLines, margin, y);
-                        y += descLines.length * 12 + 4;
-                        doc.setFont('helvetica', 'italic').text(`Technologies: ${proj.technologies.join(', ')}`, margin, y);
-                        y += 12;
-                   });
-              });
-          }
-
-          if (resume.education.length > 0) {
-              renderSection('Education', () => {
-                  resume.education.forEach(edu => {
-                      checkPageBreak(30);
-                      doc.setFont('helvetica', 'bold').setFontSize(11).text(edu.degree, margin, y);
-                      doc.setFont('helvetica', 'normal').text(edu.dates, pageWidth - margin, y, { align: 'right' });
-                      y += 14;
-                      doc.text(`${edu.school}, ${edu.location}`, margin, y);
-                      y += 14;
-                  });
-              });
-          }
-
-          if (resume.customSections && resume.customSections.length > 0) {
-            resume.customSections.forEach(sec => {
-              renderSection(sec.title, () => {
-                const contentLines = doc.splitTextToSize(sec.content, contentWidth);
-                checkPageBreak(contentLines.length * 12);
-                doc.setFontSize(10).setFont('helvetica', 'normal').text(contentLines, margin, y);
-                y += contentLines.length * 12;
-              });
-            });
-          }
-  
-          if (resume.skills.length > 0) {
-            renderSection('Skills', () => {
-                const skillsText = resume.skills.join(' • ');
-                const skillsLines = doc.splitTextToSize(skillsText, contentWidth);
-                checkPageBreak(skillsLines.length * 12);
-                doc.setFontSize(10).setFont('helvetica', 'normal').text(skillsLines, margin, y);
-                y += skillsLines.length * 12;
-            });
-          }
-          
-          if (resume.achievements && resume.achievements.length > 0) {
-            renderSection('Achievements', () => {
-                resume.achievements.forEach(ach => {
-                    const achLines = doc.splitTextToSize(`• ${ach}`, contentWidth - 10);
-                    checkPageBreak(achLines.length * 12 + 2);
-                    doc.text(achLines, margin + 10, y);
-                    y += achLines.length * 12 + 2;
-                });
-            });
-          }
-          
-          if (resume.hobbies && resume.hobbies.length > 0) {
-            renderSection('Hobbies & Interests', () => {
-                const hobbiesText = resume.hobbies.join(' • ');
-                const hobbiesLines = doc.splitTextToSize(hobbiesText, contentWidth);
-                checkPageBreak(hobbiesLines.length * 12);
-                doc.setFontSize(10).setFont('helvetica', 'normal').text(hobbiesLines, margin, y);
-                y += hobbiesLines.length * 12;
-            });
-          }
-  
-          doc.save(`${resume.name.replace(/\s+/g, '_') || 'resume'}_professional_resume.pdf`);
+          pdf.save(`${resume.name.replace(/\s+/g, '_') || 'resume'}_preview.pdf`);
       } catch (error) {
           console.error("PDF Download failed:", error);
-          toast({ variant: "destructive", title: "Download Failed", description: "There was an error generating the PDF." });
+          toast({
+              variant: "destructive",
+              title: "Download Failed",
+              description: "There was an error generating the PDF from the preview.",
+          });
       } finally {
           setIsDownloading(false);
       }
@@ -1012,18 +926,6 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                     <Button onClick={() => setIsPreviewOpen(true)} variant="outline" size="sm">
                         <View className="mr-2" /> Preview
                     </Button>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="default" size="sm" disabled={editorDisabled || isDownloading}>
-                            {isDownloading ? <Loader2 className="animate-spin" /> : <Download />}
-                            <span className="hidden sm:inline ml-2">Download</span>
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                            <DropdownMenuItem onClick={handleDownloadPdf}>PDF</DropdownMenuItem>
-                            <DropdownMenuItem onClick={handleDownloadDocx}>DOCX</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
                 </div>
             </header>
             <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 overflow-hidden">
@@ -1099,10 +1001,11 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                  <ScrollArea className="h-full w-full">
                     <div className="p-4 bg-secondary rounded-lg flex justify-center">
                         <ResumePreview
+                            ref={previewRef}
                             resumeData={resume}
                             templateName={template}
-                            isEditable={false} // Preview is not editable
-                            className="w-full max-w-[8.5in]"
+                            isEditable={false}
+                            className="w-full max-w-[8.5in] bg-white"
                         />
                     </div>
                  </ScrollArea>
@@ -1126,9 +1029,23 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                                  </SelectContent>
                              </Select>
                         </div>
-                        <DialogClose asChild>
-                            <Button>Close</Button>
-                        </DialogClose>
+                         <div className="flex items-center gap-2">
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="default" size="sm" disabled={isDownloading}>
+                                    {isDownloading ? <Loader2 className="animate-spin" /> : <Download />}
+                                    <span className="ml-2">Download</span>
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                    <DropdownMenuItem onClick={handleDownloadPdf}>PDF (Visual Copy)</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={handleDownloadDocx}>DOCX (Editable Text)</DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                            <DialogClose asChild>
+                                <Button>Close</Button>
+                            </DialogClose>
+                        </div>
                     </div>
                  </DialogFooter>
             </DialogContent>

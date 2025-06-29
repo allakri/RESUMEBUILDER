@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -24,11 +25,19 @@ export function ResumeOptimizer({ onComplete, onProcessing, isProcessing }: Resu
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (file.type !== "application/pdf") {
+      const allowedTypes = [
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "image/jpeg",
+        "image/png",
+      ];
+      
+      if (!allowedTypes.includes(file.type)) {
         toast({
           variant: "destructive",
           title: "Invalid file type",
-          description: "Please upload a PDF file.",
+          description: "Please upload a PDF, DOCX, or Image file.",
         });
         setResumeFile(null);
         setResumeDataUri(null);
@@ -142,13 +151,13 @@ export function ResumeOptimizer({ onComplete, onProcessing, isProcessing }: Resu
                     htmlFor="resume-upload"
                     className="block text-sm font-medium text-foreground"
                 >
-                    Upload your resume (PDF only, max 5MB)
+                    Upload your resume (PDF, DOCX, Image, max 5MB)
                 </label>
                 <div className="relative">
                     <Input
                     id="resume-upload"
                     type="file"
-                    accept=".pdf"
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                     onChange={handleFileChange}
                     className="pr-12"
                     />
