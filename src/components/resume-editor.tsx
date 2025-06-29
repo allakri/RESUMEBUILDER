@@ -3,6 +3,7 @@
 
 import React, { useRef, useState } from "react";
 import {
+  Award,
   ChevronLeft,
   Download,
   Loader2,
@@ -16,9 +17,10 @@ import {
 import { saveAs } from "file-saver";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
 import jsPDF from "jspdf";
-import type { ResumeData, ResumeDataWithIds, ExperienceWithId, EducationWithId, WebsiteWithId, ProjectWithId, CustomSectionWithId } from "@/ai/resume-schema";
+import type { ResumeData, ResumeDataWithIds } from "@/ai/resume-schema";
 import { enhanceResume } from "@/ai/flows/enhance-resume";
 import { chatEnhanceResume } from "@/ai/flows/chat-enhance-resume";
+import { atsScorecard } from "@/ai/flows/ats-scorecard";
 import { useHistoryState } from "@/hooks/use-history-state";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -48,7 +50,7 @@ import {
 import { ResumePreview } from "./resume-preview";
 import { ScrollArea } from "./ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { cn } from "@/lib/utils";
+import { Skeleton } from "./ui/skeleton";
 
 interface ResumeEditorProps {
   initialResumeData: ResumeDataWithIds;
@@ -123,6 +125,11 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
 
   const [editingSection, setEditingSection] = useState<EditableSection | null>(null);
   const [editFormData, setEditFormData] = useState<any>(null);
+  
+  // State for ATS Scorecard
+  const [jobCriteria, setJobCriteria] = useState("");
+  const [atsResult, setAtsResult] = useState<{ score: number; justification: string } | null>(null);
+  const [isScoring, setIsScoring] = useState(false);
 
 
   const handleUpdate = (updater: (draft: ResumeDataWithIds) => void) => {
@@ -219,18 +226,18 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
             break;
         }
         case 'websites': {
-            const index = draft.websites.findIndex(item => item.id === editingSection.id);
+            const index = (draft.websites ?? []).findIndex(item => item.id === editingSection.id);
             if (index > -1) draft.websites[index] = { ...editFormData, id: editingSection.id };
             break;
         }
         case 'projects': {
-            const index = draft.projects.findIndex(item => item.id === editingSection.id);
+            const index = (draft.projects ?? []).findIndex(item => item.id === editingSection.id);
             if (index > -1) draft.projects[index] = { ...editFormData, id: editingSection.id };
             break;
         }
         case 'customSections': {
             if (!draft.customSections) draft.customSections = [];
-            const index = draft.customSections.findIndex(item => item.id === editingSection.id);
+            const index = (draft.customSections ?? []).findIndex(item => item.id === editingSection.id);
             if (index > -1) draft.customSections[index] = { ...editFormData, id: editingSection.id };
             break;
         }
@@ -298,6 +305,65 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
         setIsChatEnhancing(false);
     }
   };
+
+  const convertResumeToString = (res: ResumeDataWithIds): string => {
+    let resumeText = `Name: ${res.name}\nEmail: ${res.email}\nPhone: ${res.phone}\n\n`;
+    resumeText += `Summary:\n${res.summary}\n\n`;
+
+    resumeText += "Experience:\n";
+    res.experience.forEach(exp => {
+        resumeText += `- ${exp.title} at ${exp.company} (${exp.dates}, ${exp.location})\n`;
+        exp.responsibilities.forEach(r => {
+            resumeText += `  - ${r}\n`;
+        });
+    });
+    resumeText += "\n";
+
+    resumeText += "Education:\n";
+    res.education.forEach(edu => {
+        resumeText += `- ${edu.degree} from ${edu.school} (${edu.dates}, ${edu.location})\n`;
+    });
+    resumeText += "\n";
+
+    if (res.projects?.length) {
+        resumeText += "Projects:\n";
+        res.projects.forEach(proj => {
+            resumeText += `- ${proj.name}: ${proj.description} (Tech: ${proj.technologies.join(', ')})\n`;
+        });
+        resumeText += "\n";
+    }
+
+    resumeText += `Skills: ${res.skills.join(', ')}\n`;
+    return resumeText;
+  };
+  
+  const handleScoreResume = async () => {
+      if (!jobCriteria) {
+          toast({
+              variant: "destructive",
+              title: "Missing Job Description",
+              description: "Please provide a job description or criteria.",
+          });
+          return;
+      }
+      setIsScoring(true);
+      setAtsResult(null);
+      try {
+          const resumeText = convertResumeToString(resume);
+          const scoreResult = await atsScorecard({ resumeText, criteria: jobCriteria });
+          setAtsResult(scoreResult);
+      } catch (error) {
+          console.error("Scoring failed:", error);
+          toast({
+              variant: "destructive",
+              title: "Scoring Failed",
+              description: "There was an error scoring your resume.",
+          });
+      } finally {
+          setIsScoring(false);
+      }
+  };
+
 
   const handleDownloadPdf = async () => {
       setIsDownloading(true);
@@ -496,26 +562,13 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
     }
   };
 
-  const editorDisabled = isDownloading || isEnhancing || isChatEnhancing;
+  const editorDisabled = isDownloading || isEnhancing || isChatEnhancing || isScoring;
   
   const removeItem = (type: 'experience' | 'education' | 'websites' | 'projects' | 'customSections', id: string) => {
     handleUpdate(draft => {
-      switch (type) {
-        case 'experience':
-            draft.experience = draft.experience.filter(item => item.id !== id);
-            break;
-        case 'education':
-            draft.education = draft.education.filter(item => item.id !== id);
-            break;
-        case 'websites':
-            draft.websites = (draft.websites || []).filter(item => item.id !== id);
-            break;
-        case 'projects':
-            draft.projects = (draft.projects || []).filter(item => item.id !== id);
-            break;
-        case 'customSections':
-            draft.customSections = (draft.customSections || []).filter(item => item.id !== id);
-            break;
+      const prop = type;
+      if (Array.isArray(draft[prop])) {
+        (draft as any)[prop] = (draft as any)[prop].filter((item: any) => item.id !== id);
       }
     });
   }
@@ -550,7 +603,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                     <CustomInput label="Location" value={editFormData.location} onChange={(e) => setEditFormData({...editFormData, location: e.target.value})} />
                     <CustomInput label="Dates" value={editFormData.dates} onChange={(e) => setEditFormData({...editFormData, dates: e.target.value})} />
                     <label className="block text-sm font-medium text-foreground">Responsibilities</label>
-                    {editFormData.responsibilities.map((resp: string, index: number) => (
+                    {(editFormData.responsibilities || []).map((resp: string, index: number) => (
                         <div key={index} className="flex items-center gap-2">
                             <Textarea value={resp} onChange={(e) => {
                                 const newResp = [...editFormData.responsibilities];
@@ -563,7 +616,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                             }}><Trash2 /></Button>
                         </div>
                     ))}
-                    <Button variant="outline" size="sm" onClick={() => setEditFormData({...editFormData, responsibilities: [...editFormData.responsibilities, ""]})}><PlusCircle className="mr-2"/> Add Responsibility</Button>
+                    <Button variant="outline" size="sm" onClick={() => setEditFormData({...editFormData, responsibilities: [...(editFormData.responsibilities || []), ""]})}><PlusCircle className="mr-2"/> Add Responsibility</Button>
                 </div>
             )
             break;
@@ -742,6 +795,55 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                        <Button variant="outline" onClick={() => handleEdit({ type: 'new_customSection' })}><PlusCircle/>Custom Section</Button>
                     </CardContent>
                 </Card>
+
+                <Card>
+                    <CardHeader><CardTitle>ATS Scorecard</CardTitle></CardHeader>
+                    <CardContent className="space-y-4">
+                        <p className="text-sm text-muted-foreground">
+                            Paste a job description below to see how well your resume matches.
+                        </p>
+                        <Textarea
+                            placeholder="Paste job description or criteria here..."
+                            value={jobCriteria}
+                            onChange={(e) => setJobCriteria(e.target.value)}
+                            disabled={editorDisabled}
+                            rows={6}
+                        />
+                        <Button onClick={handleScoreResume} disabled={editorDisabled || !jobCriteria} className="w-full">
+                            {isScoring ? <Loader2 className="animate-spin" /> : <Award className="mr-2"/>}
+                            Get ATS Score
+                        </Button>
+                        {(isScoring || atsResult) && (
+                            <div className="space-y-4 pt-4">
+                                {isScoring ? (
+                                    <div className="flex flex-col items-center gap-4">
+                                        <Skeleton className="h-32 w-32 rounded-full" />
+                                        <Skeleton className="h-4 w-4/5" />
+                                        <Skeleton className="h-4 w-full" />
+                                    </div>
+                                ) : (
+                                    atsResult && (
+                                    <div className="flex flex-col md:flex-row items-center gap-6">
+                                        <div className="flex flex-col items-center gap-2">
+                                            <ScoreCircle score={atsResult.score} />
+                                            <p className="text-muted-foreground text-sm">Compatibility</p>
+                                        </div>
+                                        <div className="flex-1 space-y-2">
+                                            <h4 className="font-semibold text-primary">Justification</h4>
+                                            <ScrollArea className="h-32">
+                                                <p className="text-sm text-foreground/90 whitespace-pre-wrap pr-4">
+                                                    {atsResult.justification}
+                                                </p>
+                                            </ScrollArea>
+                                        </div>
+                                    </div>
+                                    )
+                                )}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
                 <Card>
                     <CardHeader><CardTitle>AI Assistant</CardTitle></CardHeader>
                     <CardContent className="space-y-4">
@@ -784,6 +886,42 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
     </div>
   );
 }
+
+const ScoreCircle = ({ score }: { score: number }) => {
+    const circumference = 2 * Math.PI * 45;
+    const offset = circumference - (score / 100) * circumference;
+
+    return (
+      <div className="relative h-32 w-32">
+        <svg className="transform -rotate-90" width="128" height="128">
+          <circle
+            className="text-secondary"
+            strokeWidth="10"
+            stroke="currentColor"
+            fill="transparent"
+            r="45"
+            cx="64"
+            cy="64"
+          />
+          <circle
+            className="text-primary transition-all duration-1000 ease-out"
+            strokeWidth="10"
+            stroke="currentColor"
+            fill="transparent"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            strokeLinecap="round"
+            r="45"
+            cx="64"
+            cy="64"
+          />
+        </svg>
+        <span className="absolute inset-0 flex items-center justify-center font-headline text-3xl font-bold text-primary">
+          {score}
+        </span>
+      </div>
+    );
+};
 
 const CustomInput = React.forwardRef<HTMLInputElement, {label?:string} & React.ComponentProps<typeof Input>>(({ className, type, label, ...props }, ref) => {
     const id = React.useId();
