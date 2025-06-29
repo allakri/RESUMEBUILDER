@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { FileUp, Loader2, Sparkles, Upload, ChevronLeft } from "lucide-react";
+import { Loader2, Sparkles, ChevronLeft, UploadCloud } from "lucide-react";
 import { optimizeResumeForAts } from "@/ai/flows/ats-optimization";
 import { createResume } from "@/ai/flows/create-resume";
 import { type ResumeData, type ResumeDataWithIds } from "@/ai/resume-schema";
@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { cn } from "@/lib/utils";
 
 interface ResumeOptimizerProps {
   onComplete: (data: ResumeDataWithIds) => void;
@@ -19,13 +20,13 @@ interface ResumeOptimizerProps {
 }
 
 export function ResumeOptimizer({ onComplete, onProcessing, isProcessing, onBack }: ResumeOptimizerProps) {
-  const [resumeFile, setResumeFile] = useState<File | null>(null);
-  const [resumeDataUri, setResumeDataUri] = useState<string | null>(null);
+  const [resumeFiles, setResumeFiles] = useState<File[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
   const { toast } = useToast();
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
+  const handleFiles = (files: FileList | null) => {
+    if (files) {
+      const fileList = Array.from(files);
       const allowedTypes = [
         "application/pdf",
         "application/msword",
@@ -34,59 +35,91 @@ export function ResumeOptimizer({ onComplete, onProcessing, isProcessing, onBack
         "image/png",
       ];
       
-      if (!allowedTypes.includes(file.type)) {
-        toast({
-          variant: "destructive",
-          title: "Invalid file type",
-          description: "Please upload a PDF, DOCX, or Image file.",
-        });
-        setResumeFile(null);
-        setResumeDataUri(null);
-        event.target.value = ""; // Reset file input
-        return;
-      }
+      const validFiles = fileList.filter(file => {
+        if (!allowedTypes.includes(file.type)) {
+          toast({
+            variant: "destructive",
+            title: "Invalid file type",
+            description: `File '${file.name}' was ignored. Please upload a PDF, DOCX, or Image file.`,
+          });
+          return false;
+        }
 
-      if (file.size > 5 * 1024 * 1024) {
-        // 5MB limit
-        toast({
-          variant: "destructive",
-          title: "File too large",
-          description: "Please upload a file smaller than 5MB.",
-        });
-        setResumeFile(null);
-        setResumeDataUri(null);
-        event.target.value = "";
-        return;
-      }
+        if (file.size > 5 * 1024 * 1024) { // 5MB limit
+          toast({
+            variant: "destructive",
+            title: "File too large",
+            description: `File '${file.name}' is too large. Please upload files smaller than 5MB.`,
+          });
+          return false;
+        }
+        return true;
+      });
 
-      setResumeFile(file);
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setResumeDataUri(e.target?.result as string);
-      };
-      reader.onerror = () => {
-        toast({
-          variant: "destructive",
-          title: "Error reading file",
-          description: "There was an issue reading your resume file.",
-        });
-      };
-      reader.readAsDataURL(file);
+      setResumeFiles(validFiles);
     }
   };
 
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    handleFiles(event.target.files);
+    // Reset file input to allow selecting the same file again
+    if (event.target) {
+      event.target.value = "";
+    }
+  };
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragging(false);
+    if (event.dataTransfer.files && event.dataTransfer.files.length > 0) {
+      handleFiles(event.dataTransfer.files);
+      event.dataTransfer.clearData();
+    }
+  };
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragging(true);
+  };
+  
+  const handleDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragging(false);
+  };
+
   const handleOptimizeAndCreate = async () => {
-    if (!resumeDataUri) {
+    if (resumeFiles.length === 0) {
       toast({
         variant: "destructive",
-        title: "No resume uploaded",
+        title: "No resume file selected",
         description: "Please upload your resume before optimizing.",
       });
       return;
     }
 
     onProcessing(true);
+    
+    const processFile = (file: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                if(e.target?.result) {
+                    resolve(e.target.result as string);
+                } else {
+                    reject(new Error("Error reading file."));
+                }
+            };
+            reader.onerror = (err) => reject(err);
+            reader.readAsDataURL(file);
+        });
+    };
+
     try {
+      const resumeDataUri = await processFile(resumeFiles[0]);
+
       // Step 1: Optimize resume to get text
       const optimizationResult = await optimizeResumeForAts({
         resumePdfDataUri: resumeDataUri,
@@ -149,37 +182,52 @@ export function ResumeOptimizer({ onComplete, onProcessing, isProcessing, onBack
         <Card className="w-full">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                    <Upload />
-                    Upload an existing resume
+                    <UploadCloud />
+                    Upload Resume
                 </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-                <div className="space-y-2">
-                    <label
-                        htmlFor="resume-upload"
-                        className="block text-sm font-medium text-foreground"
-                    >
-                        Upload your resume (PDF, DOCX, JPG, PNG)
-                    </label>
-                    <div className="relative">
-                        <Input
-                        id="resume-upload"
-                        type="file"
-                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                        onChange={handleFileChange}
-                        className="pr-12"
-                        />
-                        <FileUp className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
-                    </div>
-                    {resumeFile && (
-                        <p className="text-sm text-muted-foreground">
-                        Selected: {resumeFile.name}
+                <div 
+                  className={cn(
+                    "relative flex flex-col items-center justify-center w-full border-2 border-dashed border-muted-foreground/50 rounded-lg p-8 text-center transition-colors duration-300",
+                    isDragging && "border-primary bg-accent"
+                  )}
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                >
+                  <UploadCloud className="mx-auto h-12 w-12 text-muted-foreground" />
+                  <p className="mt-4 text-sm text-muted-foreground">
+                    Drag and drop files here, or click to select files.
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, JPG, or PNG (max 5MB)</p>
+                  <Input
+                    id="resume-upload"
+                    type="file"
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                    onChange={handleFileChange}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    multiple
+                  />
+                </div>
+                
+                {resumeFiles.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-sm">Selected Files:</h4>
+                    <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
+                      {resumeFiles.map((file, index) => <li key={index}>{file.name}</li>)}
+                    </ul>
+                    {resumeFiles.length > 1 && (
+                        <p className="text-xs text-amber-600 dark:text-amber-400 pt-2">
+                          Note: Only the first file ({resumeFiles[0].name}) will be used to create the initial resume. You can use other files as references inside the editor.
                         </p>
                     )}
-                </div>
+                  </div>
+                )}
+                
                 <Button
                     onClick={handleOptimizeAndCreate}
-                    disabled={!resumeFile || isProcessing}
+                    disabled={resumeFiles.length === 0 || isProcessing}
                     className="w-full"
                     size="lg"
                 >
