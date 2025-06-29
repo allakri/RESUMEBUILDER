@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { FileUp, Loader2, Sparkles, Upload } from "lucide-react";
+import { FileUp, Loader2, Sparkles, Upload, ChevronLeft } from "lucide-react";
 import { optimizeResumeForAts } from "@/ai/flows/ats-optimization";
 import { createResume } from "@/ai/flows/create-resume";
 import { type ResumeData, type ResumeDataWithIds } from "@/ai/resume-schema";
@@ -15,9 +15,10 @@ interface ResumeOptimizerProps {
   onComplete: (data: ResumeDataWithIds) => void;
   onProcessing: (isProcessing: boolean) => void;
   isProcessing: boolean;
+  onBack: () => void;
 }
 
-export function ResumeOptimizer({ onComplete, onProcessing, isProcessing }: ResumeOptimizerProps) {
+export function ResumeOptimizer({ onComplete, onProcessing, isProcessing, onBack }: ResumeOptimizerProps) {
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumeDataUri, setResumeDataUri] = useState<string | null>(null);
   const { toast } = useToast();
@@ -138,47 +139,55 @@ export function ResumeOptimizer({ onComplete, onProcessing, isProcessing }: Resu
   }
 
   return (
-    <Card className="w-full max-w-lg">
-        <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-                <Upload />
-                Upload an existing resume
-            </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-            <div className="space-y-2">
-                <label
-                    htmlFor="resume-upload"
-                    className="block text-sm font-medium text-foreground"
-                >
-                    Upload your resume (PDF, DOCX, JPG, PNG)
-                </label>
-                <div className="relative">
-                    <Input
-                    id="resume-upload"
-                    type="file"
-                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                    onChange={handleFileChange}
-                    className="pr-12"
-                    />
-                    <FileUp className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
-                </div>
-                {resumeFile && (
-                    <p className="text-sm text-muted-foreground">
-                    Selected: {resumeFile.name}
-                    </p>
-                )}
-            </div>
-            <Button
-                onClick={handleOptimizeAndCreate}
-                disabled={!resumeFile || isProcessing}
-                className="w-full"
-                size="lg"
-            >
-                <Sparkles className="mr-2 h-4 w-4" />
-                Optimize & Edit
+    <div className="w-full max-w-lg space-y-4 flex flex-col">
+        <div className="self-start">
+            <Button variant="outline" size="sm" onClick={onBack}>
+                <ChevronLeft className="mr-2 h-4 w-4" />
+                Back
             </Button>
-        </CardContent>
-    </Card>
+        </div>
+        <Card className="w-full">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <Upload />
+                    Upload an existing resume
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                <div className="space-y-2">
+                    <label
+                        htmlFor="resume-upload"
+                        className="block text-sm font-medium text-foreground"
+                    >
+                        Upload your resume (PDF, DOCX, JPG, PNG)
+                    </label>
+                    <div className="relative">
+                        <Input
+                        id="resume-upload"
+                        type="file"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                        onChange={handleFileChange}
+                        className="pr-12"
+                        />
+                        <FileUp className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
+                    </div>
+                    {resumeFile && (
+                        <p className="text-sm text-muted-foreground">
+                        Selected: {resumeFile.name}
+                        </p>
+                    )}
+                </div>
+                <Button
+                    onClick={handleOptimizeAndCreate}
+                    disabled={!resumeFile || isProcessing}
+                    className="w-full"
+                    size="lg"
+                >
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    Optimize & Edit
+                </Button>
+            </CardContent>
+        </Card>
+    </div>
   );
 }

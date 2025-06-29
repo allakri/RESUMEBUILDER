@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Camera, CameraOff, Loader2, Zap } from "lucide-react";
+import { Camera, CameraOff, Loader2, Zap, ChevronLeft } from "lucide-react";
 import { optimizeResumeForAts } from "@/ai/flows/ats-optimization";
 import { createResume } from "@/ai/flows/create-resume";
 import { type ResumeData, type ResumeDataWithIds } from "@/ai/resume-schema";
@@ -14,9 +14,10 @@ interface ResumeCameraCaptureProps {
   onComplete: (data: ResumeDataWithIds) => void;
   onProcessing: (isProcessing: boolean) => void;
   isProcessing: boolean;
+  onBack: () => void;
 }
 
-export function ResumeCameraCapture({ onComplete, onProcessing, isProcessing }: ResumeCameraCaptureProps) {
+export function ResumeCameraCapture({ onComplete, onProcessing, isProcessing, onBack }: ResumeCameraCaptureProps) {
   const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -131,57 +132,65 @@ export function ResumeCameraCapture({ onComplete, onProcessing, isProcessing }: 
   }
 
   return (
-    <Card className="w-full max-w-lg">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Camera />
-          Capture Resume Photo
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="bg-secondary rounded-lg overflow-hidden aspect-video flex items-center justify-center relative">
-            <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-            <canvas ref={canvasRef} className="hidden" />
-
-            {/* Loading State Overlay */}
-            {hasCameraPermission === null && (
-                <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center text-muted-foreground">
-                    <Loader2 className="h-10 w-10 animate-spin" />
-                    <p className="mt-2 text-sm font-semibold">Requesting camera access...</p>
-                </div>
-            )}
-
-            {/* Error State Overlay */}
-            {hasCameraPermission === false && (
-                <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center p-4 text-center text-destructive">
-                    <CameraOff className="h-10 w-10" />
-                    <p className="mt-2 font-bold">Camera Access Denied</p>
-                    <p className="mt-1 text-xs">
-                        Please enable camera permissions in your browser settings to use this feature.
-                    </p>
-                </div>
-            )}
+    <div className="w-full max-w-lg space-y-4 flex flex-col">
+        <div className="self-start">
+            <Button variant="outline" size="sm" onClick={onBack}>
+                <ChevronLeft className="mr-2 h-4 w-4" />
+                Back
+            </Button>
         </div>
-        
-        {hasCameraPermission === false && (
-            <Alert variant="destructive">
-                <AlertTitle>Camera Access Required</AlertTitle>
-                <AlertDescription>
-                    Please allow camera access in your browser to use this feature. You may need to refresh the page after granting permission.
-                </AlertDescription>
-            </Alert>
-        )}
+        <Card className="w-full">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                <Camera />
+                Capture Resume Photo
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                <div className="bg-secondary rounded-lg overflow-hidden aspect-video flex items-center justify-center relative">
+                    <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+                    <canvas ref={canvasRef} className="hidden" />
 
-        <Button
-          onClick={handleCaptureAndProcess}
-          disabled={!hasCameraPermission || isProcessing}
-          className="w-full"
-          size="lg"
-        >
-          <Zap className="mr-2 h-4 w-4" />
-          Capture & Process
-        </Button>
-      </CardContent>
-    </Card>
+                    {/* Loading State Overlay */}
+                    {hasCameraPermission === null && (
+                        <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center text-muted-foreground">
+                            <Loader2 className="h-10 w-10 animate-spin" />
+                            <p className="mt-2 text-sm font-semibold">Requesting camera access...</p>
+                        </div>
+                    )}
+
+                    {/* Error State Overlay */}
+                    {hasCameraPermission === false && (
+                        <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center p-4 text-center text-destructive">
+                            <CameraOff className="h-10 w-10" />
+                            <p className="mt-2 font-bold">Camera Access Denied</p>
+                            <p className="mt-1 text-xs">
+                                Please enable camera permissions in your browser settings to use this feature.
+                            </p>
+                        </div>
+                    )}
+                </div>
+                
+                {hasCameraPermission === false && (
+                    <Alert variant="destructive">
+                        <AlertTitle>Camera Access Required</AlertTitle>
+                        <AlertDescription>
+                            Please allow camera access in your browser to use this feature. You may need to refresh the page after granting permission.
+                        </AlertDescription>
+                    </Alert>
+                )}
+
+                <Button
+                onClick={handleCaptureAndProcess}
+                disabled={!hasCameraPermission || isProcessing}
+                className="w-full"
+                size="lg"
+                >
+                <Zap className="mr-2 h-4 w-4" />
+                Capture & Process
+                </Button>
+            </CardContent>
+        </Card>
+    </div>
   );
 }

@@ -71,6 +71,7 @@ export default function Home() {
   const handleBackToChoice = () => {
     setResumeData(null);
     setStep('CHOICE');
+    setIsProcessing(false);
   }
 
   if (step === "EDIT" && resumeData) {
@@ -84,6 +85,7 @@ export default function Home() {
                 onComplete={handleProcessingComplete}
                 onProcessing={setIsProcessing}
                 isProcessing={isProcessing}
+                onBack={handleBackToChoice}
             />
         </div>
     );
@@ -96,6 +98,7 @@ export default function Home() {
           onComplete={handleProcessingComplete}
           onProcessing={setIsProcessing}
           isProcessing={isProcessing}
+          onBack={handleBackToChoice}
         />
       </div>
     );
@@ -103,16 +106,18 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
-      <header className="mb-12 text-center">
-        <FileText className="h-16 w-16 mx-auto text-primary mb-4" />
-        <h1 className="text-5xl font-bold">ResumeRevamp</h1>
-        <p className="text-muted-foreground mt-2">
-          Let's build your perfect resume.
+      <header className="mb-16 text-center">
+        <div className="inline-block bg-primary/10 p-4 rounded-full mb-6">
+            <FileText className="h-16 w-16 text-primary" />
+        </div>
+        <h1 className="text-5xl font-bold tracking-tight">ResumeRevamp</h1>
+        <p className="text-lg text-muted-foreground mt-4 max-w-2xl mx-auto">
+          Create a professional resume that stands out. Our AI tools will help you get past the bots and land your dream job.
         </p>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl w-full">
-        <Card className="hover:border-primary transition-colors duration-300">
+        <Card className="hover:border-primary hover:shadow-lg transition-all duration-300">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Plus />
@@ -128,7 +133,7 @@ export default function Home() {
             </Button>
           </CardContent>
         </Card>
-        <Card className="hover:border-primary transition-colors duration-300">
+        <Card className="hover:border-primary hover:shadow-lg transition-all duration-300">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Upload />
@@ -144,7 +149,7 @@ export default function Home() {
             </Button>
           </CardContent>
         </Card>
-         <Card className="hover:border-primary transition-colors duration-300">
+         <Card className="hover:border-primary hover:shadow-lg transition-all duration-300">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Camera />
