@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Camera, Loader2, Zap } from "lucide-react";
+import { Camera, CameraOff, Loader2, Zap } from "lucide-react";
 import { optimizeResumeForAts } from "@/ai/flows/ats-optimization";
 import { createResume } from "@/ai/flows/create-resume";
 import { type ResumeData, type ResumeDataWithIds } from "@/ai/resume-schema";
@@ -24,6 +24,17 @@ export function ResumeCameraCapture({ onComplete, onProcessing, isProcessing }: 
 
   useEffect(() => {
     const getCameraPermission = async () => {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.error("Camera API not supported in this browser.");
+        setHasCameraPermission(false);
+        toast({
+          variant: "destructive",
+          title: "Camera Not Supported",
+          description: "Your browser does not support the camera API.",
+        });
+        return;
+      }
+
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         if (videoRef.current) {
@@ -128,9 +139,28 @@ export function ResumeCameraCapture({ onComplete, onProcessing, isProcessing }: 
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="bg-secondary rounded-lg overflow-hidden aspect-video flex items-center justify-center">
+        <div className="bg-secondary rounded-lg overflow-hidden aspect-video flex items-center justify-center relative">
             <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
             <canvas ref={canvasRef} className="hidden" />
+
+            {/* Loading State Overlay */}
+            {hasCameraPermission === null && (
+                <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center text-muted-foreground">
+                    <Loader2 className="h-10 w-10 animate-spin" />
+                    <p className="mt-2 text-sm font-semibold">Requesting camera access...</p>
+                </div>
+            )}
+
+            {/* Error State Overlay */}
+            {hasCameraPermission === false && (
+                <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center p-4 text-center text-destructive">
+                    <CameraOff className="h-10 w-10" />
+                    <p className="mt-2 font-bold">Camera Access Denied</p>
+                    <p className="mt-1 text-xs">
+                        Please enable camera permissions in your browser settings to use this feature.
+                    </p>
+                </div>
+            )}
         </div>
         
         {hasCameraPermission === false && (
