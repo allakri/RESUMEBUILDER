@@ -12,6 +12,7 @@ import {
   Lightbulb,
   Link as LinkIcon,
   Loader2,
+  Pencil,
   PlusCircle,
   PlusSquare,
   Redo,
@@ -61,6 +62,7 @@ import { ScrollArea } from "./ui/scroll-area";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
 import { Skeleton } from "./ui/skeleton";
 import { cn } from "@/lib/utils";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
 
 interface ResumeEditorProps {
   initialResumeData: ResumeDataWithIds;
@@ -151,6 +153,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
   const [atsResult, setAtsResult] = useState<{ score: number; justification: string } | null>(null);
   const [isScoring, setIsScoring] = useState(false);
 
+  const [activeView, setActiveView] = useState<'editor' | 'preview'>('editor');
   const [activeSection, setActiveSection] = useState<string>('contact');
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
@@ -445,18 +448,20 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
           const renderSection = (title: string, body: () => void) => {
               checkPageBreak(40);
               doc.setFont('helvetica', 'bold').setFontSize(12).text(title.toUpperCase(), margin, y);
-              doc.line(margin, y + 3, contentWidth + margin, y + 3);
+              doc.setDrawColor(0).setLineWidth(1).line(margin, y + 3, contentWidth + margin, y + 3);
               y += 20;
               body();
               y += 15;
           };
   
-          renderSection('Summary', () => {
-              const summaryLines = doc.splitTextToSize(resume.summary, contentWidth);
-              checkPageBreak(summaryLines.length * 12);
-              doc.setFontSize(10).text(summaryLines, margin, y);
-              y += summaryLines.length * 12;
-          });
+          if(resume.summary) {
+            renderSection('Summary', () => {
+                const summaryLines = doc.splitTextToSize(resume.summary, contentWidth);
+                checkPageBreak(summaryLines.length * 12);
+                doc.setFontSize(10).setFont('helvetica', 'normal').text(summaryLines, margin, y);
+                y += summaryLines.length * 12;
+            });
+          }
   
           if (resume.experience.length > 0) {
               renderSection('Experience', () => {
@@ -491,6 +496,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                          }
                         y += 14;
                         const descLines = doc.splitTextToSize(proj.description, contentWidth);
+                        checkPageBreak(descLines.length * 12 + 16);
                         doc.setFont('helvetica', 'normal').text(descLines, margin, y);
                         y += descLines.length * 12 + 4;
                         doc.setFont('helvetica', 'italic').text(`Technologies: ${proj.technologies.join(', ')}`, margin, y);
@@ -517,7 +523,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
               renderSection(sec.title, () => {
                 const contentLines = doc.splitTextToSize(sec.content, contentWidth);
                 checkPageBreak(contentLines.length * 12);
-                doc.setFontSize(10).text(contentLines, margin, y);
+                doc.setFontSize(10).setFont('helvetica', 'normal').text(contentLines, margin, y);
                 y += contentLines.length * 12;
               });
             });
@@ -528,12 +534,33 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                 const skillsText = resume.skills.join(' • ');
                 const skillsLines = doc.splitTextToSize(skillsText, contentWidth);
                 checkPageBreak(skillsLines.length * 12);
-                doc.setFontSize(10).text(skillsLines, margin, y);
+                doc.setFontSize(10).setFont('helvetica', 'normal').text(skillsLines, margin, y);
                 y += skillsLines.length * 12;
             });
           }
+          
+          if (resume.achievements && resume.achievements.length > 0) {
+            renderSection('Achievements', () => {
+                resume.achievements.forEach(ach => {
+                    const achLines = doc.splitTextToSize(`• ${ach}`, contentWidth - 10);
+                    checkPageBreak(achLines.length * 12 + 2);
+                    doc.text(achLines, margin + 10, y);
+                    y += achLines.length * 12 + 2;
+                });
+            });
+          }
+          
+          if (resume.hobbies && resume.hobbies.length > 0) {
+            renderSection('Hobbies & Interests', () => {
+                const hobbiesText = resume.hobbies.join(' • ');
+                const hobbiesLines = doc.splitTextToSize(hobbiesText, contentWidth);
+                checkPageBreak(hobbiesLines.length * 12);
+                doc.setFontSize(10).setFont('helvetica', 'normal').text(hobbiesLines, margin, y);
+                y += hobbiesLines.length * 12;
+            });
+          }
   
-          doc.save(`${resume.name.replace(/\s+/g, '_') || 'resume'}_${template}_resume.pdf`);
+          doc.save(`${resume.name.replace(/\s+/g, '_') || 'resume'}_professional_resume.pdf`);
       } catch (error) {
           console.error("PDF Download failed:", error);
           toast({ variant: "destructive", title: "Download Failed", description: "There was an error generating the PDF." });
@@ -562,14 +589,16 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
             children.push(new Paragraph(""));
         };
 
-        addSection('Summary', () => {
-            children.push(new Paragraph({ children: createTextRuns(resume.summary)}));
-        });
+        if (resume.summary) {
+            addSection('Summary', () => {
+                children.push(new Paragraph({ children: createTextRuns(resume.summary)}));
+            });
+        }
 
         if (resume.experience.length > 0) {
             addSection('Experience', () => {
                 resume.experience.forEach(exp => {
-                    children.push(new Paragraph({ children: [new TextRun({ text: exp.title, bold: true }), new TextRun(` - ${exp.company}`)]}));
+                    children.push(new Paragraph({ children: [new TextRun({ text: exp.title, bold: true }), new TextRun({text: ` at ${exp.company}`, bold: true})]}));
                     children.push(new Paragraph({ children: [new TextRun({ text: `${exp.location} | ${exp.dates}`, italics: true })]}));
                     exp.responsibilities.forEach(resp => children.push(new Paragraph({ text: resp, bullet: { level: 0 } })));
                     children.push(new Paragraph(""));
@@ -581,9 +610,9 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
             addSection('Projects', () => {
                 resume.projects.forEach(proj => {
                     children.push(new Paragraph({ children: [new TextRun({ text: proj.name, bold: true })]}));
-                    if(proj.url) children.push(new Paragraph({ text: proj.url }));
+                    if(proj.url) children.push(new Paragraph({ text: proj.url, style: "Hyperlink" }));
                     children.push(new Paragraph({ children: createTextRuns(proj.description)}));
-                    children.push(new Paragraph({ text: `Technologies: ${proj.technologies.join(", ")}`, style: "IntenseQuote"}));
+                    children.push(new Paragraph({ children: [new TextRun({text: 'Technologies: ', bold: true}), new TextRun(proj.technologies.join(", "))]}));
                     children.push(new Paragraph(""));
                 });
             });
@@ -625,7 +654,22 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
             });
         }
 
-        const doc = new Document({ sections: [{ children }] });
+        const doc = new Document({ 
+            styles: {
+                paragraph: {
+                    run: { font: "PT Sans", size: 22 }, // 11pt
+                },
+                heading1: {
+                    run: { font: "Poppins", size: 28, bold: true }, // 14pt
+                    paragraph: { spacing: { after: 120 } } // 6pt
+                },
+                title: {
+                    run: { font: "Poppins", size: 44, bold: true }, // 22pt
+                    paragraph: { spacing: { after: 120 } }
+                },
+            },
+            sections: [{ children }] 
+        });
         const blob = await Packer.toBlob(doc);
         saveAs(blob, `${resume.name.replace(/\s+/g, "_") || "resume"}_resume.docx`);
     } catch (error) {
@@ -894,11 +938,13 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
              return <ListSectionWrapper
                 title="Achievements"
                 description="List any awards, honors, or significant achievements."
-                items={(resume.achievements || []).map(ach => ({id: ach, content: ach}))}
+                items={(resume.achievements || []).map((ach, i) => ({id: i.toString(), content: ach}))}
                 onAddItem={() => handleUpdate(d => d.achievements = [...(d.achievements || []), "New Achievement"])}
                 renderItem={(item) => <CardHeader><CardTitle>{item.content}</CardTitle></CardHeader>}
-                onEditItem={(item) => handleEdit({type: 'achievements'})}
-                onRemoveItem={(item) => handleUpdate(d => d.achievements = (d.achievements || []).filter(ach => ach !== item.id))}
+                onEditItem={(_item) => {
+                  handleEdit({type: 'achievements'});
+                }}
+                onRemoveItem={(item) => handleUpdate(d => d.achievements = (d.achievements || []).filter((_ach, i) => i.toString() !== item.id))}
                 editAll
             />
         case 'hobbies':
@@ -928,64 +974,123 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
   }
 
   return (
-     <div className="flex h-screen bg-muted/40 flex-col">
-        <header className="flex items-center justify-between p-4 border-b border-border bg-background shadow-sm">
-            <Button variant="outline" size="sm" onClick={onBack}>
-                <ChevronLeft className="mr-2" /> Back to Home
-            </Button>
-            <div className="flex items-center gap-2">
-                <Button onClick={undo} disabled={!canUndo || editorDisabled} variant="outline" size="icon" aria-label="Undo">
-                    <Undo />
+     <div className="flex h-screen bg-muted/40 flex-col md:flex-row">
+        {/* Left Sidebar */}
+        <aside className="w-full md:w-72 border-b md:border-r md:border-b-0 border-border bg-background flex flex-col">
+            <div className="p-4 border-b border-border">
+                <Button variant="outline" size="sm" onClick={onBack} className="w-full">
+                    <ChevronLeft className="mr-2" /> Back to Home
                 </Button>
-                <Button onClick={redo} disabled={!canRedo || editorDisabled} variant="outline" size="icon" aria-label="Redo">
-                    <Redo />
-                </Button>
-                <Button onClick={() => setIsPreviewOpen(true)} variant="outline" size="sm">
-                    <View className="mr-2" /> Preview
-                </Button>
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="default" size="sm" disabled={editorDisabled || isDownloading}>
-                        {isDownloading ? <Loader2 className="animate-spin" /> : <Download />}
-                        <span className="hidden sm:inline ml-2">Download</span>
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                        <DropdownMenuItem onClick={handleDownloadPdf}>PDF</DropdownMenuItem>
-                        <DropdownMenuItem onClick={handleDownloadDocx}>DOCX</DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
             </div>
-        </header>
-
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-5 xl:grid-cols-4 gap-6 p-6 overflow-hidden">
-            <aside className="md:col-span-1 bg-background rounded-lg border border-border shadow-sm">
-                <ScrollArea className="h-full">
-                    <nav className="p-4 space-y-2">
-                        <h3 className="px-2 text-lg font-semibold tracking-tight">Sections</h3>
-                        {SECTIONS.map(section => (
-                            <Button
-                                key={section.id}
-                                variant={activeSection === section.id ? "secondary" : "ghost"}
-                                className="w-full justify-start"
-                                onClick={() => setActiveSection(section.id)}
-                            >
-                                <section.icon className="mr-2" />
-                                {section.title}
+            <ScrollArea className="flex-1">
+                <nav className="p-4 space-y-1">
+                    {SECTIONS.map(section => (
+                        <Button
+                            key={section.id}
+                            variant={activeSection === section.id ? "secondary" : "ghost"}
+                            className="w-full justify-start"
+                            onClick={() => setActiveSection(section.id)}
+                        >
+                            <section.icon className="mr-2" />
+                            {section.title}
+                        </Button>
+                    ))}
+                </nav>
+            </ScrollArea>
+        </aside>
+        
+        {/* Main Content */}
+        <main className="flex-1 flex flex-col overflow-hidden">
+            <header className="flex items-center justify-end p-2 border-b border-border bg-background shadow-sm h-16">
+                 <div className="flex items-center gap-2">
+                    <Button onClick={undo} disabled={!canUndo || editorDisabled} variant="outline" size="icon" aria-label="Undo">
+                        <Undo />
+                    </Button>
+                    <Button onClick={redo} disabled={!canRedo || editorDisabled} variant="outline" size="icon" aria-label="Redo">
+                        <Redo />
+                    </Button>
+                    <Button onClick={() => setIsPreviewOpen(true)} variant="outline" size="sm">
+                        <View className="mr-2" /> Preview
+                    </Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="default" size="sm" disabled={editorDisabled || isDownloading}>
+                            {isDownloading ? <Loader2 className="animate-spin" /> : <Download />}
+                            <span className="hidden sm:inline ml-2">Download</span>
                             </Button>
-                        ))}
-                    </nav>
-                </ScrollArea>
-            </aside>
-
-            <main className="md:col-span-4 xl:col-span-3 overflow-hidden flex flex-col">
-                <ScrollArea className="h-full">
-                    <div className="p-1 pr-4">
-                      {renderSectionEditor(activeSection)}
-                    </div>
-                </ScrollArea>
-            </main>
-        </div>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                            <DropdownMenuItem onClick={handleDownloadPdf}>PDF</DropdownMenuItem>
+                            <DropdownMenuItem onClick={handleDownloadDocx}>DOCX</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+            </header>
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 overflow-hidden">
+                <div className="lg:col-span-2 overflow-y-auto">
+                   <div className="p-6">
+                     {renderSectionEditor(activeSection)}
+                   </div>
+                </div>
+                {/* Right Tools Sidebar */}
+                <aside className="lg:col-span-1 border-l border-border bg-background overflow-y-auto">
+                   <Accordion type="single" collapsible defaultValue="item-1" className="w-full">
+                        <AccordionItem value="item-1">
+                            <AccordionTrigger className="p-4 font-semibold">AI Assistant</AccordionTrigger>
+                            <AccordionContent className="p-4 pt-0">
+                                <div className="space-y-4">
+                                     <p className="text-sm text-muted-foreground">Ask the AI to improve your resume. Try things like "Make my summary more professional" or "Rewrite my last job to focus on leadership skills."</p>
+                                    <Textarea
+                                        placeholder="Your request..."
+                                        value={chatQuery}
+                                        onChange={(e) => setChatQuery(e.target.value)}
+                                        rows={4}
+                                        disabled={editorDisabled}
+                                    />
+                                    <Button onClick={handleChatEnhance} disabled={editorDisabled} className="w-full">
+                                        {isChatEnhancing ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                                        Enhance with AI
+                                    </Button>
+                                </div>
+                            </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="item-2">
+                            <AccordionTrigger className="p-4 font-semibold">ATS Scorecard</AccordionTrigger>
+                            <AccordionContent className="p-4 pt-0">
+                                <div className="space-y-4">
+                                    <p className="text-sm text-muted-foreground">Paste a job description to see how well your resume matches.</p>
+                                    <Textarea
+                                        placeholder="Paste job description here..."
+                                        value={jobCriteria}
+                                        onChange={(e) => setJobCriteria(e.target.value)}
+                                        rows={8}
+                                        disabled={editorDisabled}
+                                    />
+                                    <Button onClick={handleScoreResume} disabled={editorDisabled || !jobCriteria} className="w-full">
+                                        {isScoring ? <Loader2 className="animate-spin" /> : <Award />}
+                                        Get ATS Score
+                                    </Button>
+                                    {isScoring && <div className="text-center"><Loader2 className="animate-spin text-primary"/></div>}
+                                    {atsResult && !isScoring && (
+                                         <Card>
+                                             <CardHeader className="items-center">
+                                                 <ScoreCircle score={atsResult.score} />
+                                                 <CardTitle>Score: {atsResult.score}/100</CardTitle>
+                                             </CardHeader>
+                                             <CardContent>
+                                                <h4 className="font-semibold mb-2">Justification:</h4>
+                                                <p className="text-sm whitespace-pre-wrap">{atsResult.justification}</p>
+                                             </CardContent>
+                                         </Card>
+                                    )}
+                                </div>
+                            </AccordionContent>
+                        </AccordionItem>
+                    </Accordion>
+                </aside>
+            </div>
+        </main>
+       
 
         {/* Preview Modal */}
         <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
