@@ -151,7 +151,7 @@ export function ResumeOptimizer({ onComplete, onProcessing, isProcessing }: Resu
                     htmlFor="resume-upload"
                     className="block text-sm font-medium text-foreground"
                 >
-                    Upload your resume (PDF, DOCX, Image, max 5MB)
+                    Upload your resume (PDF, DOCX, JPG, PNG)
                 </label>
                 <div className="relative">
                     <Input

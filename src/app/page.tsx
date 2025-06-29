@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { FileText, Plus, Upload } from "lucide-react";
+import { Camera, FileText, Plus, Upload } from "lucide-react";
 import { ResumeEditor } from "@/components/resume-editor";
 import { ResumeOptimizer } from "@/components/resume-optimizer";
 import { type ResumeDataWithIds } from "@/ai/resume-schema";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ResumeCameraCapture } from "@/components/resume-camera-capture";
 
-type Step = "CHOICE" | "UPLOAD" | "EDIT";
+type Step = "CHOICE" | "UPLOAD" | "CAMERA" | "EDIT";
 
 const BLANK_RESUME: ResumeDataWithIds = {
   name: "Your Name",
@@ -57,6 +58,10 @@ export default function Home() {
     setStep("UPLOAD");
   };
 
+  const handleUseCamera = () => {
+    setStep("CAMERA");
+  };
+
   const handleProcessingComplete = (data: ResumeDataWithIds) => {
     setResumeData(data);
     setStep("EDIT");
@@ -84,6 +89,18 @@ export default function Home() {
     );
   }
 
+  if (step === "CAMERA") {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+        <ResumeCameraCapture
+          onComplete={handleProcessingComplete}
+          onProcessing={setIsProcessing}
+          isProcessing={isProcessing}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
       <header className="mb-12 text-center">
@@ -94,7 +111,7 @@ export default function Home() {
         </p>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl w-full">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl w-full">
         <Card className="hover:border-primary transition-colors duration-300">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -120,10 +137,26 @@ export default function Home() {
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground mb-4">
-              Let our AI analyze your resume and pre-fill the editor for you.
+              Import a PDF, DOCX, or image file to get started instantly.
             </p>
             <Button className="w-full" onClick={handleUpload}>
               Upload & Optimize
+            </Button>
+          </CardContent>
+        </Card>
+         <Card className="hover:border-primary transition-colors duration-300">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Camera />
+              Use your camera
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground mb-4">
+              Take a photo of your resume and let our AI extract the info.
+            </p>
+            <Button className="w-full" onClick={handleUseCamera}>
+              Take Photo
             </Button>
           </CardContent>
         </Card>
