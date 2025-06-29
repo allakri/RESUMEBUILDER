@@ -23,6 +23,7 @@ import {
   Undo,
   User,
   Wrench,
+  Eye,
 } from "lucide-react";
 import { saveAs } from "file-saver";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
@@ -60,7 +61,6 @@ import {
 import { ResumePreview } from "./resume-preview";
 import { ScrollArea } from "./ui/scroll-area";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
-import { Skeleton } from "./ui/skeleton";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
 import { Badge } from "./ui/badge";
 
@@ -89,7 +89,6 @@ const FONT_PAIRS = {
   "mono": { body: "'Courier New', monospace", headline: "'Courier New', monospace" },
 }
 
-
 // Helper to ensure all list items have a client-side ID.
 const assignIdsToResume = (resume: ResumeData): ResumeDataWithIds => {
     const ensureUniqueIds = (arr: any[] = []) => {
@@ -117,23 +116,9 @@ const assignIdsToResume = (resume: ResumeData): ResumeDataWithIds => {
     } as ResumeDataWithIds;
 };
 
-
-type EditableSection =
-  | { type: 'contact' }
-  | { type: 'summary' }
-  | { type: 'experience'; id: string }
-  | { type: 'education'; id: string }
-  | { type: 'websites'; id: string }
-  | { type: 'projects'; id: string }
-  | { type: 'skills' }
-  | { type: 'achievements' }
-  | { type: 'hobbies' }
-  | { type: 'customSections'; id: string }
-  | { type: 'new_experience' }
-  | { type: 'new_education' }
-  | { type: 'new_website' }
-  | { type: 'new_project' }
-  | { type: 'new_customSection' };
+export type EditableSectionType = 'contact' | 'summary' | 'experience' | 'education' | 'websites' | 'projects' | 'skills' | 'achievements' | 'hobbies' | 'customSections' | 'new_experience' | 'new_education' | 'new_website' | 'new_project' | 'new_customSection';
+export type RemovableSectionType = 'experience' | 'education' | 'websites' | 'projects' | 'customSections';
+export type EditableSection = { type: EditableSectionType, id?: string };
 
 
 export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
@@ -152,14 +137,13 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
 
   const [isDownloading, setIsDownloading] = useState(false);
   const [isChatEnhancing, setIsChatEnhancing] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const { toast } = useToast();
 
   const [editingSection, setEditingSection] = useState<EditableSection | null>(null);
   const [editFormData, setEditFormData] = useState<any>(null);
   
   const [aiFeedback, setAiFeedback] = useState<AIFeedbackData | null>(null);
-
-  const [activeSection, setActiveSection] = useState<string>('contact');
 
   const previewRef = useRef<HTMLDivElement>(null);
   const [chatQuery, setChatQuery] = useState("");
@@ -245,6 +229,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
     if (!editingSection || !editFormData) return;
     
     handleUpdate(draft => {
+      if (!editingSection) return;
       switch (editingSection.type) {
         case 'contact':
             draft.name = editFormData.name;
@@ -320,7 +305,6 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
     const files = event.target.files;
     if (files) {
       const fileList = Array.from(files);
-      // Validate files
       const validFiles = fileList.filter(file => {
         if (file.size > 5 * 1024 * 1024) { // 5MB limit
             toast({
@@ -333,9 +317,8 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
         return true;
       });
 
-      setReferenceFiles(validFiles);
-      setReferenceDataUris([]); // Clear old URIs
-
+      setReferenceFiles(prev => [...prev, ...validFiles]);
+      
       const filePromises = validFiles.map(file => {
         return new Promise<string>((resolve, reject) => {
             const reader = new FileReader();
@@ -345,18 +328,25 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
         });
       });
 
-      Promise.all(filePromises).then(setReferenceDataUris).catch(err => {
+      Promise.all(filePromises).then(newUris => {
+        setReferenceDataUris(prev => [...prev, ...newUris]);
+      }).catch(err => {
         console.error(err);
         toast({ variant: 'destructive', title: 'Error reading files' });
       });
     }
   };
 
-  const clearReferenceFiles = () => {
-    setReferenceFiles([]);
-    setReferenceDataUris([]);
-    const input = document.getElementById('reference-upload') as HTMLInputElement;
-    if (input) input.value = '';
+  const clearReferenceFile = (fileName: string) => {
+    const fileIndex = referenceFiles.findIndex(f => f.name === fileName);
+    if(fileIndex === -1) return;
+
+    setReferenceFiles(prev => prev.filter(f => f.name !== fileName));
+    setReferenceDataUris(prev => {
+        const newUris = [...prev];
+        newUris.splice(fileIndex, 1);
+        return newUris;
+    });
   };
 
   const handleChatEnhance = async () => {
@@ -375,7 +365,6 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                 referenceDataUris: referenceDataUris,
             });
         } else {
-            // Using enhanceResumeWithReference even without files to get feedback structure
             const simpleEnhanceResult = await chatEnhanceResume({ resume, query: chatQuery });
             result = {
                 resume: simpleEnhanceResult,
@@ -400,62 +389,43 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
     }
   };
 
-
   const handleDownloadPdf = async () => {
       setIsDownloading(true);
-      const elementToCapture = previewRef.current;
+      const elementToCapture = previewRef.current?.querySelector('.preview-content-wrapper') || previewRef.current;
   
       if (!elementToCapture) {
-          toast({
-              variant: "destructive",
-              title: "Preview Not Found",
-              description: "Could not find the preview element to generate the PDF.",
-          });
+          toast({ variant: "destructive", title: "Preview Not Found" });
           setIsDownloading(false);
           return;
       }
   
       try {
-          // Temporarily set the body background to white for the capture
           document.body.style.backgroundColor = 'white';
-          const canvas = await html2canvas(elementToCapture.querySelector('.preview-content-wrapper') || elementToCapture, {
-              scale: 3, // Higher scale for better resolution
-              useCORS: true,
-              backgroundColor: '#ffffff', // Ensure background is white for capture
+          const canvas = await html2canvas(elementToCapture as HTMLElement, {
+              scale: 3, useCORS: true, backgroundColor: '#ffffff',
           });
-          // Revert body background color
           document.body.style.backgroundColor = '';
-
           const imgData = canvas.toDataURL('image/png');
-          const pdf = new jsPDF({
-              orientation: 'portrait',
-              unit: 'pt',
-              format: 'a4',
-          });
-          
+          const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
           const pdfWidth = pdf.internal.pageSize.getWidth();
+          const pdfHeight = pdf.internal.pageSize.getHeight();
           const imgHeight = (canvas.height * pdfWidth) / canvas.width;
           let heightLeft = imgHeight;
           let position = 0;
   
           pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-          heightLeft -= pdf.internal.pageSize.getHeight();
+          heightLeft -= pdfHeight;
   
           while (heightLeft > 0) {
-              position = position - pdf.internal.pageSize.getHeight();
+              position = position - pdfHeight;
               pdf.addPage();
               pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-              heightLeft -= pdf.internal.pageSize.getHeight();
+              heightLeft -= pdfHeight;
           }
-          
           pdf.save(`${resume.name.replace(/\s+/g, '_') || 'resume'}_${template}.pdf`);
       } catch (error) {
           console.error("PDF Download failed:", error);
-          toast({
-              variant: "destructive",
-              title: "Download Failed",
-              description: "There was an error generating the PDF from the preview.",
-          });
+          toast({ variant: "destructive", title: "Download Failed", description: "Error generating PDF." });
       } finally {
           setIsDownloading(false);
           document.body.style.backgroundColor = '';
@@ -466,15 +436,12 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
     setIsDownloading(true);
     try {
         const createTextRuns = (text: string) => text.split('\n').flatMap((line, i) => i > 0 ? [new TextRun({ break: 1 }), new TextRun(line)] : [new TextRun(line)]);
-
         const children: Paragraph[] = [
             new Paragraph({ text: resume.name, heading: HeadingLevel.TITLE, alignment: 'center' }),
             new Paragraph({ text: [resume.email, resume.phone].filter(Boolean).join(" | "), alignment: 'center' }),
+            ...(resume.websites && resume.websites.length > 0 ? [new Paragraph({ text: resume.websites.map(w => w.url).join(" | "), alignment: 'center' })] : []),
+            new Paragraph(""),
         ];
-        if (resume.websites && resume.websites.length > 0) {
-            children.push(new Paragraph({ text: resume.websites.map(w => w.url).join(" | "), alignment: 'center' }));
-        }
-        children.push(new Paragraph(""));
 
         const addSection = (title: string, body: () => void) => {
             children.push(new Paragraph({ text: title, heading: HeadingLevel.HEADING_1, border: { bottom: { color: "auto", space: 1, value: "single", size: 6 } } }));
@@ -482,92 +449,38 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
             children.push(new Paragraph(""));
         };
 
-        if (resume.summary) {
-            addSection('Summary', () => {
-                children.push(new Paragraph({ children: createTextRuns(resume.summary)}));
-            });
-        }
+        if (resume.summary) addSection('Summary', () => { children.push(new Paragraph({ children: createTextRuns(resume.summary)})); });
+        if (resume.experience.length > 0) addSection('Experience', () => resume.experience.forEach(exp => {
+            children.push(new Paragraph({ children: [new TextRun({ text: exp.title, bold: true }), new TextRun({text: ` at ${exp.company}`, bold: true})]}));
+            children.push(new Paragraph({ children: [new TextRun({ text: `${exp.location} | ${exp.dates}`, italics: true })]}));
+            exp.responsibilities.forEach(resp => children.push(new Paragraph({ text: resp, bullet: { level: 0 } })));
+            children.push(new Paragraph(""));
+        }));
+        if (resume.projects && resume.projects.length > 0) addSection('Projects', () => resume.projects.forEach(proj => {
+            children.push(new Paragraph({ children: [new TextRun({ text: proj.name, bold: true })]}));
+            if(proj.url) children.push(new Paragraph({ text: proj.url, style: "Hyperlink" }));
+            children.push(new Paragraph({ children: createTextRuns(proj.description)}));
+            children.push(new Paragraph({ children: [new TextRun({text: 'Technologies: ', bold: true}), new TextRun(proj.technologies.join(", "))]}));
+            children.push(new Paragraph(""));
+        }));
+        if (resume.education.length > 0) addSection('Education', () => resume.education.forEach(edu => {
+            children.push(new Paragraph({ children: [new TextRun({ text: `${edu.degree}, ${edu.school}`, bold: true })]}));
+            children.push(new Paragraph({ children: [new TextRun({ text: `${edu.location} | ${edu.dates}`, italics: true })]}));
+            children.push(new Paragraph(""));
+        }));
+        if (resume.customSections && resume.customSections.length > 0) resume.customSections.forEach(sec => addSection(sec.title, () => {
+            children.push(new Paragraph({ children: createTextRuns(sec.content) }));
+        }));
+        if (resume.skills.length > 0) addSection('Skills', () => { children.push(new Paragraph(resume.skills.join(", "))); });
+        if (resume.achievements && resume.achievements.length > 0) addSection('Achievements', () => resume.achievements.forEach(ach => children.push(new Paragraph({ text: ach, bullet: { level: 0 } }))));
+        if (resume.hobbies && resume.hobbies.length > 0) addSection('Hobbies & Interests', () => { children.push(new Paragraph(resume.hobbies.join(", "))); });
 
-        if (resume.experience.length > 0) {
-            addSection('Experience', () => {
-                resume.experience.forEach(exp => {
-                    children.push(new Paragraph({ children: [new TextRun({ text: exp.title, bold: true }), new TextRun({text: ` at ${exp.company}`, bold: true})]}));
-                    children.push(new Paragraph({ children: [new TextRun({ text: `${exp.location} | ${exp.dates}`, italics: true })]}));
-                    exp.responsibilities.forEach(resp => children.push(new Paragraph({ text: resp, bullet: { level: 0 } })));
-                    children.push(new Paragraph(""));
-                });
-            });
-        }
-        
-        if (resume.projects && resume.projects.length > 0) {
-            addSection('Projects', () => {
-                resume.projects.forEach(proj => {
-                    children.push(new Paragraph({ children: [new TextRun({ text: proj.name, bold: true })]}));
-                    if(proj.url) children.push(new Paragraph({ text: proj.url, style: "Hyperlink" }));
-                    children.push(new Paragraph({ children: createTextRuns(proj.description)}));
-                    children.push(new Paragraph({ children: [new TextRun({text: 'Technologies: ', bold: true}), new TextRun(proj.technologies.join(", "))]}));
-                    children.push(new Paragraph(""));
-                });
-            });
-        }
-        
-        if (resume.education.length > 0) {
-            addSection('Education', () => {
-                resume.education.forEach(edu => {
-                    children.push(new Paragraph({ children: [new TextRun({ text: `${edu.degree}, ${edu.school}`, bold: true })]}));
-                    children.push(new Paragraph({ children: [new TextRun({ text: `${edu.location} | ${edu.dates}`, italics: true })]}));
-                    children.push(new Paragraph(""));
-                });
-            });
-        }
-
-        if (resume.customSections && resume.customSections.length > 0) {
-          resume.customSections.forEach(sec => {
-            addSection(sec.title, () => {
-                children.push(new Paragraph({ children: createTextRuns(sec.content) }));
-            });
-          });
-        }
-
-        if (resume.skills.length > 0) {
-            addSection('Skills', () => {
-                children.push(new Paragraph(resume.skills.join(", ")));
-            });
-        }
-
-        if (resume.achievements && resume.achievements.length > 0) {
-            addSection('Achievements', () => {
-                resume.achievements.forEach(ach => children.push(new Paragraph({ text: ach, bullet: { level: 0 } })));
-            });
-        }
-        
-        if (resume.hobbies && resume.hobbies.length > 0) {
-            addSection('Hobbies & Interests', () => {
-                children.push(new Paragraph(resume.hobbies.join(", ")));
-            });
-        }
-
-        const doc = new Document({ 
-            styles: {
-                paragraph: {
-                    run: { font: "PT Sans", size: 22 }, // 11pt
-                },
-                heading1: {
-                    run: { font: "Poppins", size: 28, bold: true }, // 14pt
-                    paragraph: { spacing: { after: 120 } } // 6pt
-                },
-                title: {
-                    run: { font: "Poppins", size: 44, bold: true }, // 22pt
-                    paragraph: { spacing: { after: 120 } }
-                },
-            },
-            sections: [{ children }] 
-        });
+        const doc = new Document({ styles: { paragraph: { run: { font: "PT Sans", size: 22 } }, heading1: { run: { font: "Poppins", size: 28, bold: true }, paragraph: { spacing: { after: 120 } } }, title: { run: { font: "Poppins", size: 44, bold: true }, paragraph: { spacing: { after: 120 } } }, }, sections: [{ children }] });
         const blob = await Packer.toBlob(doc);
         saveAs(blob, `${resume.name.replace(/\s+/g, "_") || "resume"}_resume.docx`);
     } catch (error) {
       console.error(error);
-      toast({ variant: "destructive", title: "Download Failed", description: "There was an error generating the DOCX file." });
+      toast({ variant: "destructive", title: "Download Failed", description: "Error generating DOCX." });
     } finally {
       setIsDownloading(false);
     }
@@ -575,9 +488,9 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
 
   const editorDisabled = isDownloading || isChatEnhancing;
   
-  const removeItem = (type: 'experience' | 'education' | 'websites' | 'projects' | 'customSections', id: string) => {
+  const removeItem = (type: RemovableSectionType, id: string) => {
     handleUpdate(draft => {
-      const prop = type;
+      const prop = type as keyof ResumeDataWithIds;
       if (Array.isArray((draft as any)[prop])) {
         (draft as any)[prop] = (draft as any)[prop].filter((item: any) => item.id !== id);
       }
@@ -588,139 +501,121 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
     if (!editingSection || !editFormData) return null;
     let title = "Edit Section";
     let content = null;
+    const type = editingSection.type;
 
-    switch(editingSection.type) {
-        case 'contact':
-            title = "Edit Contact Information"
-            content = (
-                <div className="space-y-4">
-                    <CustomInput label="Full Name" value={editFormData.name} onChange={(e) => setEditFormData({...editFormData, name: e.target.value})} />
-                    <CustomInput label="Email Address" type="email" value={editFormData.email} onChange={(e) => setEditFormData({...editFormData, email: e.target.value})} />
-                    <CustomInput label="Phone Number" value={editFormData.phone} onChange={(e) => setEditFormData({...editFormData, phone: e.target.value})} />
-                </div>
-            );
-            break;
-        case 'summary':
-            title = "Edit Professional Summary"
-            content = <CustomTextarea label="Summary" value={editFormData.summary} onChange={(e) => setEditFormData({summary: e.target.value})} rows={6} />;
-            break;
-        case 'new_experience':
-        case 'experience':
-            title = editingSection.type === 'new_experience' ? "Add Experience" : "Edit Experience";
-            content = (
-                <div className="space-y-4">
-                    <CustomInput label="Job Title" value={editFormData.title} onChange={(e) => setEditFormData({...editFormData, title: e.target.value})} />
-                    <CustomInput label="Company" value={editFormData.company} onChange={(e) => setEditFormData({...editFormData, company: e.target.value})} />
-                    <CustomInput label="Location" value={editFormData.location} onChange={(e) => setEditFormData({...editFormData, location: e.target.value})} />
-                    <CustomInput label="Dates" value={editFormData.dates} onChange={(e) => setEditFormData({...editFormData, dates: e.target.value})} />
-                    <label className="block text-sm font-medium text-foreground">Responsibilities</label>
-                    {(editFormData.responsibilities || []).map((resp: string, index: number) => (
-                        <div key={index} className="flex items-center gap-2">
-                            <Textarea value={resp} onChange={(e) => {
-                                const newResp = [...editFormData.responsibilities];
-                                newResp[index] = e.target.value;
-                                setEditFormData({...editFormData, responsibilities: newResp});
-                            }} rows={2}/>
-                            <Button variant="ghost" size="icon" onClick={() => {
-                                 const newResp = editFormData.responsibilities.filter((_:any, i:number) => i !== index);
-                                 setEditFormData({...editFormData, responsibilities: newResp});
-                            }}><Trash2 className="h-4 w-4" /></Button>
-                        </div>
-                    ))}
-                    <Button variant="outline" size="sm" onClick={() => setEditFormData({...editFormData, responsibilities: [...(editFormData.responsibilities || []), ""]})}><PlusCircle className="mr-2 h-4 w-4"/> Add Responsibility</Button>
-                </div>
-            )
-            break;
-        case 'new_education':
-        case 'education':
-             title = editingSection.type === 'new_education' ? "Add Education" : "Edit Education";
-             content = (
-                <div className="space-y-4">
-                    <CustomInput label="Degree / Certificate" value={editFormData.degree} onChange={e => setEditFormData({...editFormData, degree: e.target.value})} />
-                    <CustomInput label="School / Institution" value={editFormData.school} onChange={e => setEditFormData({...editFormData, school: e.target.value})} />
-                    <CustomInput label="Location" value={editFormData.location} onChange={e => setEditFormData({...editFormData, location: e.target.value})} />
-                    <CustomInput label="Dates" value={editFormData.dates} onChange={e => setEditFormData({...editFormData, dates: e.target.value})} />
-                </div>
-             );
-             break;
-        case 'new_project':
-        case 'projects':
-            title = editingSection.type === 'new_project' ? "Add Project" : "Edit Project";
-            content = (
-                <div className="space-y-4">
-                    <CustomInput label="Project Name" value={editFormData.name} onChange={e => setEditFormData({...editFormData, name: e.target.value})} />
-                    <CustomInput label="Project URL" value={editFormData.url ?? ""} onChange={e => setEditFormData({...editFormData, url: e.target.value})} />
-                    <CustomTextarea label="Description" value={editFormData.description} onChange={e => setEditFormData({...editFormData, description: e.target.value})} rows={4} />
-                    <CustomInput label="Technologies (comma-separated)" value={(editFormData.technologies || []).join(", ")} onChange={e => setEditFormData({...editFormData, technologies: e.target.value.split(',').map(t => t.trim())})} />
-                </div>
-            )
-            break;
-        case 'new_website':
-        case 'websites':
-             title = editingSection.type === 'new_website' ? "Add Website/Link" : "Edit Website/Link";
-             content = (
-                <div className="space-y-4">
-                    <CustomInput label="Name" value={editFormData.name} onChange={e => setEditFormData({...editFormData, name: e.target.value})} placeholder="e.g. LinkedIn, GitHub Portfolio" />
-                    <CustomInput label="URL" value={editFormData.url} onChange={e => setEditFormData({...editFormData, url: e.target.value})} />
-                </div>
-             );
-             break;
-        case 'new_customSection':
-        case 'customSections':
-            title = editingSection.type === 'new_customSection' ? "Add Custom Section" : "Edit Custom Section";
-            content = (
-                <div className="space-y-4">
-                    <CustomInput label="Section Title" value={editFormData.title} onChange={e => setEditFormData({...editFormData, title: e.target.value})} />
-                    <CustomTextarea label="Content" value={editFormData.content} onChange={e => setEditFormData({...editFormData, content: e.target.value})} rows={6} />
-                </div>
-            );
-            break;
-        case 'skills':
-            title = "Edit Skills";
-            content = (
-                <CustomTextarea
-                    label="Skills (comma-separated)"
-                    value={(editFormData || []).join(', ')}
-                    onChange={(e) => setEditFormData(e.target.value.split(',').map(s => s.trim()))}
-                    rows={4}
-                    placeholder="e.g. React, TypeScript, Project Management"
-                />
-            );
-            break;
-        case 'achievements':
-            title = "Edit Achievements";
-            content = (
-                <div className="space-y-2">
-                    <label className="block text-sm font-medium text-foreground">Achievements</label>
-                    {(editFormData || []).map((ach: string, index: number) => (
-                        <div key={index} className="flex items-center gap-2">
-                            <Textarea value={ach} onChange={(e) => {
-                                const newAch = [...editFormData];
-                                newAch[index] = e.target.value;
-                                setEditFormData(newAch);
-                            }} rows={2}/>
-                            <Button variant="ghost" size="icon" onClick={() => {
-                                 const newAch = editFormData.filter((_:any, i:number) => i !== index);
-                                 setEditFormData(newAch);
-                            }}><Trash2 className="h-4 w-4" /></Button>
-                        </div>
-                    ))}
-                    <Button variant="outline" size="sm" onClick={() => setEditFormData([...(editFormData || []), ""])}><PlusCircle className="mr-2 h-4 w-4"/> Add Achievement</Button>
-                </div>
-            );
-            break;
-        case 'hobbies':
-            title = "Edit Hobbies & Interests";
-            content = (
-                 <CustomTextarea
-                    label="Hobbies (comma-separated)"
-                    value={(editFormData || []).join(', ')}
-                    onChange={(e) => setEditFormData(e.target.value.split(',').map(s => s.trim()))}
-                    rows={4}
-                    placeholder="e.g. Hiking, Reading, Photography"
-                />
-            );
-            break;
+    if (type === 'contact' || type === 'summary' || type.startsWith('new_') || 
+        type === 'experience' || type === 'education' || type === 'projects' || 
+        type === 'websites' || type === 'customSections' || type === 'skills' || 
+        type === 'achievements' || type === 'hobbies') {
+        
+        const isNew = type.startsWith('new_');
+        const baseType = isNew ? type.substring(4) : type;
+
+        switch(baseType) {
+            case 'contact':
+                title = "Edit Contact Information"
+                content = (
+                    <div className="space-y-4">
+                        <CustomInput label="Full Name" value={editFormData.name} onChange={(e) => setEditFormData({...editFormData, name: e.target.value})} />
+                        <CustomInput label="Email Address" type="email" value={editFormData.email} onChange={(e) => setEditFormData({...editFormData, email: e.target.value})} />
+                        <CustomInput label="Phone Number" value={editFormData.phone} onChange={(e) => setEditFormData({...editFormData, phone: e.target.value})} />
+                    </div>
+                );
+                break;
+            case 'summary':
+                title = "Edit Professional Summary"
+                content = <CustomTextarea label="Summary" value={editFormData.summary} onChange={(e) => setEditFormData({summary: e.target.value})} rows={6} />;
+                break;
+            case 'experience':
+                title = isNew ? "Add Experience" : "Edit Experience";
+                content = (
+                    <div className="space-y-4">
+                        <CustomInput label="Job Title" value={editFormData.title} onChange={(e) => setEditFormData({...editFormData, title: e.target.value})} />
+                        <CustomInput label="Company" value={editFormData.company} onChange={(e) => setEditFormData({...editFormData, company: e.target.value})} />
+                        <CustomInput label="Location" value={editFormData.location} onChange={(e) => setEditFormData({...editFormData, location: e.target.value})} />
+                        <CustomInput label="Dates" value={editFormData.dates} onChange={(e) => setEditFormData({...editFormData, dates: e.target.value})} />
+                        <label className="block text-sm font-medium text-foreground">Responsibilities</label>
+                        {(editFormData.responsibilities || []).map((resp: string, index: number) => (
+                            <div key={index} className="flex items-center gap-2">
+                                <Textarea value={resp} onChange={(e) => {
+                                    const newResp = [...editFormData.responsibilities];
+                                    newResp[index] = e.target.value;
+                                    setEditFormData({...editFormData, responsibilities: newResp});
+                                }} rows={2}/>
+                                <Button variant="ghost" size="icon" onClick={() => {
+                                     const newResp = editFormData.responsibilities.filter((_:any, i:number) => i !== index);
+                                     setEditFormData({...editFormData, responsibilities: newResp});
+                                }}><Trash2 className="h-4 w-4" /></Button>
+                            </div>
+                        ))}
+                        <Button variant="outline" size="sm" onClick={() => setEditFormData({...editFormData, responsibilities: [...(editFormData.responsibilities || []), ""]})}><PlusCircle className="mr-2 h-4 w-4"/> Add Responsibility</Button>
+                    </div>
+                )
+                break;
+            case 'education':
+                 title = isNew ? "Add Education" : "Edit Education";
+                 content = (
+                    <div className="space-y-4">
+                        <CustomInput label="Degree / Certificate" value={editFormData.degree} onChange={e => setEditFormData({...editFormData, degree: e.target.value})} />
+                        <CustomInput label="School / Institution" value={editFormData.school} onChange={e => setEditFormData({...editFormData, school: e.target.value})} />
+                        <CustomInput label="Location" value={editFormData.location} onChange={e => setEditFormData({...editFormData, location: e.target.value})} />
+                        <CustomInput label="Dates" value={editFormData.dates} onChange={e => setEditFormData({...editFormData, dates: e.target.value})} />
+                    </div>
+                 );
+                 break;
+            case 'project': // Note: Plural in type, singular here
+                title = isNew ? "Add Project" : "Edit Project";
+                content = (
+                    <div className="space-y-4">
+                        <CustomInput label="Project Name" value={editFormData.name} onChange={e => setEditFormData({...editFormData, name: e.target.value})} />
+                        <CustomInput label="Project URL" value={editFormData.url ?? ""} onChange={e => setEditFormData({...editFormData, url: e.target.value})} />
+                        <CustomTextarea label="Description" value={editFormData.description} onChange={e => setEditFormData({...editFormData, description: e.target.value})} rows={4} />
+                        <CustomInput label="Technologies (comma-separated)" value={(editFormData.technologies || []).join(", ")} onChange={e => setEditFormData({...editFormData, technologies: e.target.value.split(',').map(t => t.trim())})} />
+                    </div>
+                )
+                break;
+            case 'website':
+                 title = isNew ? "Add Website/Link" : "Edit Website/Link";
+                 content = (
+                    <div className="space-y-4">
+                        <CustomInput label="Name" value={editFormData.name} onChange={e => setEditFormData({...editFormData, name: e.target.value})} placeholder="e.g. LinkedIn, GitHub Portfolio" />
+                        <CustomInput label="URL" value={editFormData.url} onChange={e => setEditFormData({...editFormData, url: e.target.value})} />
+                    </div>
+                 );
+                 break;
+            case 'customSection':
+                title = isNew ? "Add Custom Section" : "Edit Custom Section";
+                content = (
+                    <div className="space-y-4">
+                        <CustomInput label="Section Title" value={editFormData.title} onChange={e => setEditFormData({...editFormData, title: e.target.value})} />
+                        <CustomTextarea label="Content" value={editFormData.content} onChange={e => setEditFormData({...editFormData, content: e.target.value})} rows={6} />
+                    </div>
+                );
+                break;
+            case 'skills':
+                title = "Edit Skills";
+                content = <CustomTextarea label="Skills (comma-separated)" value={(editFormData || []).join(', ')} onChange={(e) => setEditFormData(e.target.value.split(',').map(s => s.trim()))} rows={4} placeholder="e.g. React, TypeScript..." />;
+                break;
+            case 'achievements':
+                title = "Edit Achievements";
+                content = (
+                    <div className="space-y-2">
+                        <label className="block text-sm font-medium text-foreground">Achievements</label>
+                        {(editFormData || []).map((ach: string, index: number) => (
+                            <div key={index} className="flex items-center gap-2">
+                                <Textarea value={ach} onChange={(e) => setEditFormData(editFormData.map((a:string, i:number) => i === index ? e.target.value : a))} rows={2}/>
+                                <Button variant="ghost" size="icon" onClick={() => setEditFormData(editFormData.filter((_:any, i:number) => i !== index))}><Trash2 className="h-4 w-4" /></Button>
+                            </div>
+                        ))}
+                        <Button variant="outline" size="sm" onClick={() => setEditFormData([...(editFormData || []), ""])}><PlusCircle className="mr-2 h-4 w-4"/> Add Achievement</Button>
+                    </div>
+                );
+                break;
+            case 'hobbies':
+                title = "Edit Hobbies & Interests";
+                content = <CustomTextarea label="Hobbies (comma-separated)" value={(editFormData || []).join(', ')} onChange={(e) => setEditFormData(e.target.value.split(',').map(s => s.trim()))} rows={4} placeholder="e.g. Hiking, Reading..." />;
+                break;
+        }
     }
     
     return (
@@ -739,413 +634,213 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
     )
   }
 
-  const renderSectionEditor = (sectionId: string) => {
-    switch(sectionId) {
-        case 'contact':
-            return <SectionWrapper title="Contact Information" description="Provide your name and contact details.">
-                <div className="space-y-4 max-w-lg">
-                    <CustomInput label="Full Name" value={resume.name} onChange={e => handleUpdate(d => d.name = e.target.value)} />
-                    <CustomInput label="Email" type="email" value={resume.email} onChange={e => handleUpdate(d => d.email = e.target.value)} />
-                    <CustomInput label="Phone" value={resume.phone} onChange={e => handleUpdate(d => d.phone = e.target.value)} />
-                </div>
-            </SectionWrapper>
-        case 'summary':
-            return <SectionWrapper title="Professional Summary" description="Write a brief summary of your skills and experience.">
-                 <CustomTextarea label="Summary" value={resume.summary} onChange={e => handleUpdate(d => d.summary = e.target.value)} rows={8} />
-            </SectionWrapper>
-        case 'experience':
-            return <ListSectionWrapper
-                title="Work Experience"
-                description="Detail your professional roles and responsibilities."
-                items={resume.experience}
-                onAddItem={() => handleEdit({type: 'new_experience'})}
-                renderItem={(item) => (
-                    <>
-                        <CardHeader>
-                            <CardTitle>{item.title}</CardTitle>
-                            <CardDescription>{item.company} | {item.location} | {item.dates}</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                           <ul className="list-disc pl-5 text-sm space-y-1">
-                             {item.responsibilities.map((r, i) => <li key={i}>{r}</li>)}
-                           </ul>
-                        </CardContent>
-                    </>
-                )}
-                onEditItem={(item) => handleEdit({type: 'experience', id: item.id})}
-                onRemoveItem={(item) => removeItem('experience', item.id)}
-            />
-        case 'education':
-            return <ListSectionWrapper
-                title="Education"
-                description="List your academic qualifications and degrees."
-                items={resume.education}
-                onAddItem={() => handleEdit({type: 'new_education'})}
-                renderItem={(item) => (
-                    <CardHeader>
-                        <CardTitle>{item.degree}</CardTitle>
-                        <CardDescription>{item.school} | {item.location} | {item.dates}</CardDescription>
-                    </CardHeader>
-                )}
-                onEditItem={(item) => handleEdit({type: 'education', id: item.id})}
-                onRemoveItem={(item) => removeItem('education', item.id)}
-            />
-        case 'projects':
-            return <ListSectionWrapper
-                title="Projects"
-                description="Showcase your personal or professional projects."
-                items={resume.projects || []}
-                onAddItem={() => handleEdit({type: 'new_project'})}
-                renderItem={(item) => (
-                    <>
-                     <CardHeader>
-                        <CardTitle>{item.name}</CardTitle>
-                        <CardDescription>{item.technologies.join(', ')}</CardDescription>
-                    </CardHeader>
-                    <CardContent><p>{item.description}</p></CardContent>
-                    </>
-                )}
-                onEditItem={(item) => handleEdit({type: 'projects', id: item.id})}
-                onRemoveItem={(item) => removeItem('projects', item.id)}
-            />
-         case 'websites':
-            return <ListSectionWrapper
-                title="Websites & Links"
-                description="Include links to your portfolio, LinkedIn, or GitHub."
-                items={resume.websites || []}
-                onAddItem={() => handleEdit({type: 'new_website'})}
-                renderItem={(item) => (
-                    <CardHeader>
-                        <CardTitle>{item.name}</CardTitle>
-                        <CardDescription>{item.url}</CardDescription>
-                    </CardHeader>
-                )}
-                onEditItem={(item) => handleEdit({type: 'websites', id: item.id})}
-                onRemoveItem={(item) => removeItem('websites', item.id)}
-            />
-        case 'skills':
-             return <SectionWrapper title="Skills" description="List your key skills, separated by commas.">
-                 <CustomTextarea label="Skills" value={(resume.skills || []).join(', ')} onChange={e => handleUpdate(d => d.skills = e.target.value.split(',').map(s => s.trim()))} rows={5} />
-            </SectionWrapper>
-        case 'achievements':
-             return <ListSectionWrapper
-                title="Achievements"
-                description="List any awards, honors, or significant achievements."
-                items={(resume.achievements || []).map((ach, i) => ({id: i.toString(), content: ach}))}
-                onAddItem={() => handleUpdate(d => d.achievements = [...(d.achievements || []), "New Achievement"])}
-                renderItem={(item) => <CardHeader><CardTitle>{item.content}</CardTitle></CardHeader>}
-                onEditItem={(_item) => {
-                  handleEdit({type: 'achievements'});
-                }}
-                onRemoveItem={(item) => handleUpdate(d => d.achievements = (d.achievements || []).filter((_ach, i) => i.toString() !== item.id))}
-                editAll
-            />
-        case 'hobbies':
-            return <SectionWrapper title="Hobbies & Interests" description="List your hobbies, separated by commas.">
-                 <CustomTextarea label="Hobbies" value={(resume.hobbies || []).join(', ')} onChange={e => handleUpdate(d => d.hobbies = e.target.value.split(',').map(s => s.trim()))} rows={4} />
-            </SectionWrapper>
-        case 'customSections':
-             return <ListSectionWrapper
-                title="Custom Sections"
-                description="Add your own sections like 'Certifications' or 'Languages'."
-                items={resume.customSections || []}
-                onAddItem={() => handleEdit({type: 'new_customSection'})}
-                renderItem={(item) => (
-                   <>
-                    <CardHeader>
-                        <CardTitle>{item.title}</CardTitle>
-                    </CardHeader>
-                    <CardContent><p className="whitespace-pre-wrap">{item.content}</p></CardContent>
-                   </>
-                )}
-                onEditItem={(item) => handleEdit({type: 'customSections', id: item.id})}
-                onRemoveItem={(item) => removeItem('customSections', item.id)}
-            />
-        default:
-            return <div className="p-8">Please select a section to edit.</div>
-    }
-  }
-
   return (
      <div className="flex h-screen bg-muted/40 flex-col md:flex-row">
         {/* Left Sidebar */}
-        <aside className="w-full md:w-60 border-b md:border-r md:border-b-0 border-border bg-background flex flex-col">
-            <div className="p-4 border-b border-border flex items-center justify-between">
+        <aside className="w-full md:w-72 border-b md:border-r md:border-b-0 border-border bg-background flex flex-col">
+            <div className="p-4 border-b border-border flex items-center justify-between gap-2">
                 <Button variant="outline" size="sm" onClick={onBack}>
-                    <ChevronLeft /> Back
+                    <ChevronLeft className="h-4 w-4 mr-2" /> Back
                 </Button>
                 <div className="flex items-center gap-1">
-                    <Button onClick={undo} disabled={!canUndo || editorDisabled} variant="ghost" size="icon" aria-label="Undo">
-                        <Undo />
-                    </Button>
-                    <Button onClick={redo} disabled={!canRedo || editorDisabled} variant="ghost" size="icon" aria-label="Redo">
-                        <Redo />
-                    </Button>
+                    <Button onClick={undo} disabled={!canUndo || editorDisabled} variant="ghost" size="icon" aria-label="Undo"><Undo className="h-4 w-4" /></Button>
+                    <Button onClick={redo} disabled={!canRedo || editorDisabled} variant="ghost" size="icon" aria-label="Redo"><Redo className="h-4 w-4" /></Button>
+                    <Button onClick={() => setIsPreviewOpen(true)} variant="ghost" size="icon" aria-label="Preview"><Eye className="h-4 w-4"/></Button>
                 </div>
             </div>
-            <ScrollArea className="flex-1">
-                <nav className="p-2 space-y-1">
-                    {SECTIONS.map(section => (
-                        <Button
-                            key={section.id}
-                            variant={activeSection === section.id ? "secondary" : "ghost"}
-                            className="w-full justify-start"
-                            onClick={() => setActiveSection(section.id)}
-                        >
-                            <section.icon />
-                            {section.title}
-                        </Button>
-                    ))}
-                </nav>
-            </ScrollArea>
-        </aside>
-        
-        {/* Main Content */}
-        <main className="flex-1 grid grid-cols-1 lg:grid-cols-2 overflow-hidden">
-            {/* Editor Panel */}
-            <ScrollArea className="lg:col-span-1">
-                <div className="p-6">
-                    {renderSectionEditor(activeSection)}
-                </div>
-            </ScrollArea>
-
-            {/* Right Panel: Preview & Tools */}
-            <aside className="lg:col-span-1 bg-gray-100 dark:bg-black/20 flex flex-col overflow-hidden">
+            
+             <Accordion type="multiple" className="w-full flex-1 flex flex-col" defaultValue={['ai-assistant']}>
                 <ScrollArea className="flex-1">
-                    <div className="p-4 flex justify-center">
-                         <ResumePreview
-                            ref={previewRef}
-                            resumeData={resume}
-                            templateName={template}
-                            isEditable={false}
-                            className="w-full max-w-[8.5in] bg-white shadow-lg"
-                            style={{
-                                "--theme-color": themeColor,
-                                "--font-family-body": FONT_PAIRS[fontPair].body,
-                                "--font-family-headline": FONT_PAIRS[fontPair].headline,
-                            } as React.CSSProperties}
-                        />
+                    <div className="p-4">
+                        <h3 className="text-lg font-semibold mb-4">AI Assistant</h3>
+                        <div className="space-y-4">
+                            <p className="text-sm text-muted-foreground">Ask the AI to improve your resume. Attach job descriptions or other files for tailored suggestions.</p>
+                            <Textarea placeholder="e.g., 'Tailor my summary for this job.'" value={chatQuery} onChange={(e) => setChatQuery(e.target.value)} rows={3} disabled={editorDisabled} />
+                            
+                            <div className="space-y-2">
+                                <label htmlFor="reference-upload" className="text-sm font-medium text-foreground cursor-pointer hover:text-primary">
+                                    Attach References (Optional)
+                                </label>
+                                <Input id="reference-upload" type="file" className="sr-only" onChange={handleReferenceFileChange} disabled={editorDisabled} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" multiple />
+                                {referenceFiles.length > 0 && (
+                                    <div className="text-xs text-muted-foreground space-y-1">
+                                        <ul className="space-y-1">
+                                            {referenceFiles.map(f => (
+                                              <li key={f.name} className="flex items-center justify-between bg-muted p-1 rounded">
+                                                <span className="truncate pr-2">{f.name}</span>
+                                                <Button variant="ghost" size="icon" onClick={() => clearReferenceFile(f.name)} disabled={editorDisabled} aria-label="Clear reference file" className="h-5 w-5"><Trash2 className="h-3 w-3"/></Button>
+                                              </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                            </div>
+                            <Button onClick={handleChatEnhance} disabled={editorDisabled || !chatQuery} className="w-full">
+                                {isChatEnhancing ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                                Enhance with AI
+                            </Button>
+                        </div>
                     </div>
                 </ScrollArea>
-                <div className="flex-shrink-0 border-t border-border bg-background">
-                     <Accordion type="multiple" className="w-full" defaultValue={['design']}>
-                        <AccordionItem value="design">
-                            <AccordionTrigger className="p-4 font-semibold">Design & Download</AccordionTrigger>
-                            <AccordionContent className="p-4 pt-0">
-                                <div className="grid grid-cols-2 gap-4 mb-4">
-                                     <div className="space-y-2">
-                                         <label className="text-sm font-medium">Template</label>
-                                         <Select value={template} onValueChange={setTemplate}>
-                                             <SelectTrigger><SelectValue /></SelectTrigger>
-                                             <SelectContent>
-                                                 <SelectItem value="professional">Professional</SelectItem>
-                                                 <SelectItem value="modern">Modern</SelectItem>
-                                                 <SelectItem value="classic">Classic</SelectItem>
-                                                 <SelectItem value="executive">Executive</SelectItem>
-                                                 <SelectItem value="minimalist">Minimalist</SelectItem>
-                                                 <SelectItem value="creative">Creative</SelectItem>
-                                                 <SelectItem value="academic">Academic</SelectItem>
-                                                 <SelectItem value="technical">Technical</SelectItem>
-                                                 <SelectItem value="elegant">Elegant</SelectItem>
-                                                 <SelectItem value="compact">Compact</SelectItem>
-                                             </SelectContent>
-                                         </Select>
+
+                <AccordionItem value="ai-feedback" className="border-t">
+                    <AccordionTrigger className="p-4 font-semibold text-base">AI Analysis</AccordionTrigger>
+                    <AccordionContent className="p-4 pt-0">
+                        {isChatEnhancing && (
+                            <div className="flex flex-col items-center justify-center gap-4 p-8">
+                                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                                <p className="text-muted-foreground">AI is analyzing...</p>
+                            </div>
+                        )}
+                        {!isChatEnhancing && !aiFeedback && (
+                            <p className="text-sm text-muted-foreground text-center py-4">
+                                Use the AI Assistant above to get feedback.
+                            </p>
+                        )}
+                        {aiFeedback && !isChatEnhancing && (
+                             <Card>
+                                 <CardHeader className="items-center">
+                                     <ScoreCircle score={aiFeedback.score} />
+                                     <CardTitle>Score: {aiFeedback.score}/100</CardTitle>
+                                 </CardHeader>
+                                 <CardContent className="text-sm space-y-4">
+                                    <div>
+                                        <h4 className="font-semibold mb-1">Justification:</h4>
+                                        <p className="text-muted-foreground whitespace-pre-wrap">{aiFeedback.justification}</p>
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">Fonts</label>
-                                        <Select value={fontPair} onValueChange={(v) => setFontPair(v as keyof typeof FONT_PAIRS)}>
-                                            <SelectTrigger><SelectValue /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="sans">Modern Sans</SelectItem>
-                                                <SelectItem value="serif">Classic Serif</SelectItem>
-                                                <SelectItem value="modern">Futuristic</SelectItem>
-                                                <SelectItem value="mono">Technical</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                     <div className="space-y-2 col-span-2">
-                                        <label htmlFor="theme-color-picker" className="text-sm font-medium flex items-center gap-2"><Palette /> Theme Color</label>
-                                        <Input id="theme-color-picker" type="color" value={themeColor} onChange={(e) => setThemeColor(e.target.value)} className="w-full h-10"/>
-                                    </div>
-                                </div>
-                                 <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button className="w-full" size="lg" disabled={isDownloading}>
-                                        {isDownloading ? <Loader2 className="animate-spin" /> : <Download />}
-                                        <span className="ml-2">Download Resume</span>
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent className="w-56">
-                                        <DropdownMenuItem onClick={handleDownloadPdf}>PDF (Visual Copy)</DropdownMenuItem>
-                                        <DropdownMenuItem onClick={handleDownloadDocx}>DOCX (Editable Text)</DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </AccordionContent>
-                        </AccordionItem>
-                        <AccordionItem value="ai-assistant">
-                            <AccordionTrigger className="p-4 font-semibold">AI Assistant</AccordionTrigger>
-                            <AccordionContent className="p-4 pt-0">
-                                <div className="space-y-4">
-                                     <p className="text-sm text-muted-foreground">Ask the AI to improve your resume. Attach job descriptions or other files for tailored suggestions.</p>
-                                    <Textarea
-                                        placeholder="Your request... e.g., 'Tailor my summary for this job.'"
-                                        value={chatQuery}
-                                        onChange={(e) => setChatQuery(e.target.value)}
-                                        rows={3}
-                                        disabled={editorDisabled}
-                                    />
-                                    <div className="space-y-2">
-                                        <label htmlFor="reference-upload" className="text-sm font-medium text-foreground">
-                                            Reference Documents (Optional)
-                                        </label>
-                                        <div className="flex items-center gap-2">
-                                            <Input
-                                                id="reference-upload"
-                                                type="file"
-                                                className="flex-1"
-                                                onChange={handleReferenceFileChange}
-                                                disabled={editorDisabled}
-                                                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                                                multiple
-                                            />
-                                            <Button variant="ghost" size="icon" onClick={clearReferenceFiles} disabled={referenceFiles.length === 0 || editorDisabled} aria-label="Clear reference files">
-                                                <Trash2 />
-                                            </Button>
+                                    {aiFeedback.skillsToLearn && aiFeedback.skillsToLearn.length > 0 && (
+                                        <div>
+                                            <h4 className="font-semibold mb-2">Suggested Skills to Learn:</h4>
+                                            <div className="flex flex-wrap gap-2">
+                                                {aiFeedback.skillsToLearn.map(skill => <Badge key={skill} variant="secondary">{skill}</Badge>)}
+                                            </div>
                                         </div>
-                                        {referenceFiles.length > 0 && (
-                                            <div className="text-xs text-muted-foreground space-y-1">
-                                                <p>Attached files:</p>
-                                                <ul className="list-disc pl-4">
-                                                    {referenceFiles.map(f => <li key={f.name}>{f.name}</li>)}
-                                                </ul>
+                                    )}
+                                     {aiFeedback.suggestedRoles && aiFeedback.suggestedRoles.length > 0 && (
+                                        <div>
+                                            <h4 className="font-semibold mb-2">Other Suggested Roles:</h4>
+                                            <div className="flex flex-wrap gap-2">
+                                                {aiFeedback.suggestedRoles.map(role => <Badge key={role} variant="outline">{role}</Badge>)}
                                             </div>
-                                        )}
-                                    </div>
-                                    <Button onClick={handleChatEnhance} disabled={editorDisabled || !chatQuery} className="w-full">
-                                        {isChatEnhancing ? <Loader2 className="animate-spin" /> : <Sparkles />}
-                                        Enhance with AI
-                                    </Button>
-                                </div>
-                            </AccordionContent>
-                        </AccordionItem>
-                        <AccordionItem value="ai-feedback">
-                            <AccordionTrigger className="p-4 font-semibold">AI Analysis & Feedback</AccordionTrigger>
-                            <AccordionContent className="p-4 pt-0">
-                                {isChatEnhancing && (
-                                    <div className="flex flex-col items-center justify-center gap-4 p-8">
-                                        <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                                        <p className="text-muted-foreground">AI is analyzing...</p>
-                                    </div>
-                                )}
-                                {!isChatEnhancing && !aiFeedback && (
-                                    <p className="text-sm text-muted-foreground text-center py-4">
-                                        Use the AI Assistant above to get feedback on your resume.
-                                    </p>
-                                )}
-                                {aiFeedback && !isChatEnhancing && (
-                                     <Card>
-                                         <CardHeader className="items-center">
-                                             <ScoreCircle score={aiFeedback.score} />
-                                             <CardTitle>Score: {aiFeedback.score}/100</CardTitle>
-                                         </CardHeader>
-                                         <CardContent className="text-sm space-y-4">
-                                            <div>
-                                                <h4 className="font-semibold mb-1">Justification:</h4>
-                                                <p className="text-muted-foreground whitespace-pre-wrap">{aiFeedback.justification}</p>
-                                            </div>
-                                            {aiFeedback.skillsToLearn && aiFeedback.skillsToLearn.length > 0 && (
-                                                <div>
-                                                    <h4 className="font-semibold mb-2">Suggested Skills to Learn:</h4>
-                                                    <div className="flex flex-wrap gap-2">
-                                                        {aiFeedback.skillsToLearn.map(skill => <Badge key={skill} variant="secondary">{skill}</Badge>)}
-                                                    </div>
-                                                </div>
-                                            )}
-                                             {aiFeedback.suggestedRoles && aiFeedback.suggestedRoles.length > 0 && (
-                                                <div>
-                                                    <h4 className="font-semibold mb-2">Other Suggested Roles:</h4>
-                                                    <div className="flex flex-wrap gap-2">
-                                                        {aiFeedback.suggestedRoles.map(role => <Badge key={role} variant="outline">{role}</Badge>)}
-                                                    </div>
-                                                </div>
-                                            )}
-                                         </CardContent>
-                                     </Card>
-                                )}
-                            </AccordionContent>
-                        </AccordionItem>
-                    </Accordion>
+                                        </div>
+                                    )}
+                                 </CardContent>
+                             </Card>
+                        )}
+                    </AccordionContent>
+                </AccordionItem>
+            </Accordion>
+        </aside>
+        
+        {/* Main Content: Interactive Preview */}
+        <main className="flex-1 bg-muted/20 flex flex-col overflow-hidden">
+             <div className="p-4 border-b border-border bg-background flex-wrap flex items-center justify-center gap-4">
+                 <div className="space-y-1">
+                     <label className="text-xs font-medium">Template</label>
+                     <Select value={template} onValueChange={setTemplate}>
+                         <SelectTrigger className="w-40 h-9"><SelectValue /></SelectTrigger>
+                         <SelectContent>
+                             <SelectItem value="professional">Professional</SelectItem>
+                             <SelectItem value="modern">Modern</SelectItem>
+                             <SelectItem value="classic">Classic</SelectItem>
+                             <SelectItem value="executive">Executive</SelectItem>
+                             <SelectItem value="minimalist">Minimalist</SelectItem>
+                             <SelectItem value="creative">Creative</SelectItem>
+                             <SelectItem value="academic">Academic</SelectItem>
+                             <SelectItem value="technical">Technical</SelectItem>
+                             <SelectItem value="elegant">Elegant</SelectItem>
+                             <SelectItem value="compact">Compact</SelectItem>
+                         </SelectContent>
+                     </Select>
                 </div>
-            </aside>
+                <div className="space-y-1">
+                    <label className="text-xs font-medium">Fonts</label>
+                    <Select value={fontPair} onValueChange={(v) => setFontPair(v as keyof typeof FONT_PAIRS)}>
+                        <SelectTrigger className="w-40 h-9"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="sans">Modern Sans</SelectItem>
+                            <SelectItem value="serif">Classic Serif</SelectItem>
+                            <SelectItem value="modern">Futuristic</SelectItem>
+                            <SelectItem value="mono">Technical</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                 <div className="space-y-1">
+                    <label htmlFor="theme-color-picker" className="text-xs font-medium flex items-center gap-2">Theme Color</label>
+                    <Input id="theme-color-picker" type="color" value={themeColor} onChange={(e) => setThemeColor(e.target.value)} className="w-24 h-9 p-1"/>
+                </div>
+                 <div className="flex items-end h-full">
+                    <Button onClick={() => handleEdit({type: 'new_experience'})}>Add Experience</Button>
+                 </div>
+                 <div className="flex items-end h-full">
+                    <Button onClick={() => handleEdit({type: 'new_education'})}>Add Education</Button>
+                 </div>
+                 <div className="flex items-end h-full">
+                    <Button onClick={() => handleEdit({type: 'new_customSection'})}>Add Section</Button>
+                 </div>
+            </div>
+            <ScrollArea className="flex-1">
+                <div className="p-4 md:p-8 flex justify-center">
+                    <ResumePreview
+                        ref={previewRef}
+                        resumeData={resume}
+                        templateName={template}
+                        isEditable={true}
+                        onEdit={handleEdit}
+                        onRemove={removeItem}
+                        className="w-full max-w-[8.5in] bg-white shadow-lg"
+                        style={{
+                            "--theme-color": themeColor,
+                            "--font-family-body": FONT_PAIRS[fontPair].body,
+                            "--font-family-headline": FONT_PAIRS[fontPair].headline,
+                        } as React.CSSProperties}
+                    />
+                </div>
+            </ScrollArea>
         </main>
        
         {/* Item Edit Modal */}
         {renderEditDialog()}
+
+        {/* Full Page Preview and Download Dialog */}
+        <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+            <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
+                <DialogHeader>
+                    <DialogTitle>Resume Preview</DialogTitle>
+                    <CardDescription>This is how your resume will look. Use the download buttons below.</CardDescription>
+                </DialogHeader>
+                <div className="flex-1 overflow-auto bg-muted/40 p-4">
+                    <ResumePreview
+                        resumeData={resume}
+                        templateName={template}
+                        className="w-full max-w-[8.5in] mx-auto bg-white shadow-lg"
+                        style={{
+                            "--theme-color": themeColor,
+                            "--font-family-body": FONT_PAIRS[fontPair].body,
+                            "--font-family-headline": FONT_PAIRS[fontPair].headline,
+                        } as React.CSSProperties}
+                    />
+                </div>
+                <DialogFooter className="pt-4">
+                    <DialogClose asChild><Button variant="ghost">Close</Button></DialogClose>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button size="lg" disabled={isDownloading}>
+                                {isDownloading ? <Loader2 className="animate-spin" /> : <Download />}
+                                <span className="ml-2">Download Resume</span>
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-56">
+                            <DropdownMenuItem onClick={handleDownloadPdf}>PDF (Visual Copy)</DropdownMenuItem>
+                            <DropdownMenuItem onClick={handleDownloadDocx}>DOCX (Editable Text)</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </div>
   );
 }
-
-const SectionWrapper = ({ title, description, children }: { title: string, description: string, children: React.ReactNode }) => (
-    <Card>
-        <CardHeader>
-            <CardTitle>{title}</CardTitle>
-            <CardDescription>{description}</CardDescription>
-        </CardHeader>
-        <CardContent>
-            {children}
-        </CardContent>
-    </Card>
-);
-
-const ListSectionWrapper = <T extends { id: string }>({ title, description, items, onAddItem, renderItem, onEditItem, onRemoveItem, editAll = false }: {
-    title: string,
-    description: string,
-    items: T[],
-    onAddItem: () => void,
-    renderItem: (item: T) => React.ReactNode,
-    onEditItem: (item: T) => void,
-    onRemoveItem: (item: T) => void,
-    editAll?: boolean
-}) => (
-    <div className="space-y-6">
-        <div className="flex justify-between items-start">
-            <div>
-                <h2 className="text-2xl font-bold tracking-tight">{title}</h2>
-                <p className="text-muted-foreground">{description}</p>
-            </div>
-            {editAll ? (
-                 <Button variant="outline" onClick={() => onEditItem({} as T)}>
-                    <Pencil className="mr-2" /> Edit All
-                </Button>
-            ) : (
-                <Button onClick={onAddItem}>
-                    <PlusCircle className="mr-2" /> Add New
-                </Button>
-            )}
-        </div>
-        <div className="space-y-4">
-            {items.map(item => (
-                <Card key={item.id}>
-                    <div className="relative">
-                        {renderItem(item)}
-                        {!editAll && (
-                            <div className="absolute top-4 right-4 flex gap-2">
-                                <Button variant="outline" size="icon" onClick={() => onEditItem(item)}><Pencil className="h-4 w-4" /></Button>
-                                <Button variant="destructive" size="icon" onClick={() => onRemoveItem(item)}><Trash2 className="h-4 w-4" /></Button>
-                            </div>
-                        )}
-                    </div>
-                </Card>
-            ))}
-            {items.length === 0 && (
-                <div className="text-center py-12 border-2 border-dashed rounded-lg">
-                    <p className="text-muted-foreground">No items added yet.</p>
-                </div>
-            )}
-        </div>
-    </div>
-)
-
 
 const ScoreCircle = ({ score }: { score: number }) => {
     const circumference = 2 * Math.PI * 40; // radius is 40
@@ -1154,27 +849,12 @@ const ScoreCircle = ({ score }: { score: number }) => {
     return (
       <div className="relative h-24 w-24">
         <svg className="transform -rotate-90" width="96" height="96" viewBox="0 0 100 100">
-          <circle
-            className="text-secondary"
-            strokeWidth="10"
-            stroke="currentColor"
-            fill="transparent"
-            r="40"
-            cx="50"
-            cy="50"
-          />
+          <circle className="text-secondary" strokeWidth="10" stroke="currentColor" fill="transparent" r="40" cx="50" cy="50" />
           <circle
             className="text-primary transition-all duration-1000 ease-out"
-            strokeWidth="10"
-            stroke="currentColor"
-            fill="transparent"
-            strokeDasharray={circumference}
-            strokeDashoffset={offset}
-            strokeLinecap="round"
-            r="40"
-            cx="50"
-            cy="50"
-          />
+            strokeWidth="10" stroke="currentColor" fill="transparent"
+            strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
+            r="40" cx="50" cy="50" />
         </svg>
         <span className="absolute inset-0 flex items-center justify-center text-2xl font-bold text-primary">
           {score}
@@ -1185,9 +865,7 @@ const ScoreCircle = ({ score }: { score: number }) => {
 
 const CustomInput = React.forwardRef<HTMLInputElement, {label?:string} & React.ComponentProps<typeof Input>>(({ className, type, label, ...props }, ref) => {
     const id = React.useId();
-    if (!label) {
-        return <Input type={type} className={className} ref={ref} {...props}/>
-    }
+    if (!label) return <Input type={type} className={className} ref={ref} {...props}/>
     return (
         <div className="grid w-full items-center gap-1.5">
             <label htmlFor={id} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">{label}</label>
@@ -1199,9 +877,7 @@ CustomInput.displayName = "Input";
 
 const CustomTextarea = React.forwardRef<HTMLTextAreaElement, {label?: string} & React.ComponentProps<typeof Textarea>>(({ className, label, ...props }, ref) => {
     const id = React.useId();
-    if (!label) {
-        return <Textarea className={className} ref={ref} {...props} />
-    }
+    if (!label) return <Textarea className={className} ref={ref} {...props} />
     return (
       <div className="grid w-full gap-1.5">
         <label htmlFor={id} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">{label}</label>
