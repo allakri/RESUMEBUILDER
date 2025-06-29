@@ -4,7 +4,7 @@ import { useState } from "react";
 import { FileText, Plus, Upload } from "lucide-react";
 import { ResumeEditor } from "@/components/resume-editor";
 import { ResumeOptimizer } from "@/components/resume-optimizer";
-import { type ResumeDataWithIds } from "@/ai/flows/create-resume";
+import { type ResumeDataWithIds } from "@/ai/resume-schema";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -35,24 +35,11 @@ const BLANK_RESUME: ResumeDataWithIds = {
     },
   ],
   skills: ["Skill 1", "Skill 2", "Skill 3"],
-  websites: [
-    {
-      id: crypto.randomUUID(),
-      name: "LinkedIn",
-      url: "https://linkedin.com/in/yourprofile",
-    },
-  ],
-  projects: [
-    {
-      id: crypto.randomUUID(),
-      name: "Project Name",
-      description: "A short description of your project.",
-      technologies: ["React", "Node.js"],
-      url: "https://github.com/yourprofile/project",
-    },
-  ],
-  achievements: ["First prize in a hackathon."],
-  hobbies: ["Reading", "Hiking"],
+  websites: [],
+  projects: [],
+  achievements: [],
+  hobbies: [],
+  customSections: [],
 };
 
 
@@ -87,7 +74,7 @@ export default function Home() {
   
   if (step === "UPLOAD") {
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-4">
+        <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
             <ResumeOptimizer
                 onComplete={handleProcessingComplete}
                 onProcessing={setIsProcessing}
@@ -98,10 +85,10 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
       <header className="mb-12 text-center">
         <FileText className="h-16 w-16 mx-auto text-primary mb-4" />
-        <h1 className="text-5xl font-bold font-headline">ResumeRevamp</h1>
+        <h1 className="text-5xl font-bold">ResumeRevamp</h1>
         <p className="text-muted-foreground mt-2">
           Let's build your perfect resume.
         </p>

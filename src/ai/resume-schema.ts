@@ -102,17 +102,13 @@ export type ExperienceWithId = ResumeData['experience'][0] & {id: string};
 export type EducationWithId = ResumeData['education'][0] & {id: string};
 export type CustomSectionWithId = {id: string; title: string; content: string};
 
-export type ResumeDataWithIds = {
-  name: string;
-  email: string;
-  phone: string;
-  summary: string;
+export type ResumeDataWithIds = Omit<ResumeData, 'experience' | 'education' | 'websites' | 'projects' | 'customSections'> & {
   experience: ExperienceWithId[];
   education: EducationWithId[];
   skills: string[];
   websites: WebsiteWithId[];
   projects: ProjectWithId[];
-  achievements?: string[];
-  hobbies?: string[];
-  customSections?: CustomSectionWithId[];
+  achievements: string[];
+  hobbies: string[];
+  customSections: CustomSectionWithId[];
 };

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import type { ResumeDataWithIds } from "@/ai/flows/create-resume";
+import type { ResumeDataWithIds } from "@/ai/resume-schema";
 import { cn } from "@/lib/utils";
 import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "./ui/button";
@@ -18,15 +18,15 @@ interface ResumePreviewProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 const ActionButtons = ({ onEdit, onRemove }: { onEdit?: (() => void), onRemove?: (() => void) }) => (
-  <div className="absolute top-1 right-1 flex items-center gap-1 p-1 rounded-lg bg-gray-200/75 opacity-0 group-hover:opacity-100 transition-opacity">
+  <div className="absolute top-1 right-1 flex items-center gap-1 p-1 rounded-md bg-secondary/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300">
     {onEdit && (
-      <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-700 hover:text-black" onClick={onEdit}>
+      <Button variant="ghost" size="icon" className="h-6 w-6 text-secondary-foreground hover:bg-primary/20" onClick={onEdit}>
         <Pencil className="h-4 w-4" />
         <span className="sr-only">Edit section</span>
       </Button>
     )}
     {onRemove && (
-      <Button variant="ghost" size="icon" className="h-6 w-6 text-red-600 hover:text-red-800" onClick={onRemove}>
+      <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:bg-destructive/20" onClick={onRemove}>
         <Trash2 className="h-4 w-4" />
         <span className="sr-only">Remove item</span>
       </Button>
@@ -62,24 +62,24 @@ export const ResumePreview = React.forwardRef<HTMLDivElement, ResumePreviewProps
             {resume.name}
           </h1>
           <p className="contact-info">
-            {resume.email} | {resume.phone}
+            {[resume.email, resume.phone].filter(Boolean).join(" | ")}
           </p>
           {isEditable && <ActionButtons onEdit={() => handleEdit('contact')} />}
         </header>
         <main>
           {resume.websites && resume.websites.length > 0 && (
-            <section className="text-center relative group">
-                <div className="flex justify-center items-center gap-4 flex-wrap">
+            <section className="text-center relative group/section -mt-2 mb-4">
+                <div className="flex justify-center items-center gap-x-4 gap-y-1 flex-wrap">
                     {resume.websites.map((site) => (
                         <div key={site.id} className="relative group/item flex items-center gap-1">
-                            <a href={site.url} target="_blank" rel="noopener noreferrer" className="hover:underline" onClick={(e) => isEditable && e.preventDefault()}>{site.name}</a>
+                            <a href={site.url} target="_blank" rel="noopener noreferrer" className="hover:underline text-sm" onClick={(e) => isEditable && e.preventDefault()}>{site.name}</a>
                             {isEditable && (
                                 <div className="flex opacity-0 group-hover/item:opacity-100 transition-opacity">
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-700 hover:text-black" onClick={() => handleEdit('websites', site.id)}>
+                                    <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => handleEdit('websites', site.id)}>
                                         <Pencil className="h-3 w-3" />
                                         <span className="sr-only">Edit Website</span>
                                     </Button>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-red-600 hover:text-red-800" onClick={() => handleRemove('websites', site.id)}>
+                                    <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive" onClick={() => handleRemove('websites', site.id)}>
                                         <Trash2 className="h-3 w-3" />
                                         <span className="sr-only">Remove Website</span>
                                     </Button>
@@ -97,27 +97,29 @@ export const ResumePreview = React.forwardRef<HTMLDivElement, ResumePreviewProps
             {isEditable && <ActionButtons onEdit={() => handleEdit('summary')} />}
           </section>
 
-          <section>
-            <h2 className="section-title">Experience</h2>
-            {resume.experience.map((exp) => (
-              <div key={exp.id} className="entry relative group">
-                <div className="flex justify-between items-baseline">
-                  <h3 className="title">{exp.title}</h3>
-                  <p className="dates">{exp.dates}</p>
+          {resume.experience && resume.experience.length > 0 && (
+            <section>
+              <h2 className="section-title">Experience</h2>
+              {resume.experience.map((exp) => (
+                <div key={exp.id} className="entry relative group">
+                  <div className="flex justify-between items-baseline">
+                    <h3 className="title">{exp.title}</h3>
+                    <p className="dates">{exp.dates}</p>
+                  </div>
+                  <div className="flex justify-between items-baseline">
+                    <p className="company">{exp.company}</p>
+                    <p className="location">{exp.location}</p>
+                  </div>
+                  <ul className="responsibilities">
+                    {exp.responsibilities.map((resp, i) => (
+                      <li key={i}>{resp}</li>
+                    ))}
+                  </ul>
+                  {isEditable && <ActionButtons onEdit={() => handleEdit('experience', exp.id)} onRemove={() => handleRemove('experience', exp.id)} />}
                 </div>
-                <div className="flex justify-between items-baseline">
-                  <p className="company">{exp.company}</p>
-                  <p className="location">{exp.location}</p>
-                </div>
-                <ul className="responsibilities">
-                  {exp.responsibilities.map((resp, i) => (
-                    <li key={i}>{resp}</li>
-                  ))}
-                </ul>
-                {isEditable && <ActionButtons onEdit={() => handleEdit('experience', exp.id)} onRemove={() => handleRemove('experience', exp.id)} />}
-              </div>
-            ))}
-          </section>
+              ))}
+            </section>
+          )}
           
           {resume.projects && resume.projects.length > 0 && (
             <section>
@@ -136,19 +138,21 @@ export const ResumePreview = React.forwardRef<HTMLDivElement, ResumePreviewProps
             </section>
           )}
 
-          <section>
-            <h2 className="section-title">Education</h2>
-            {resume.education.map((edu) => (
-              <div key={edu.id} className="entry relative group">
-                <div className="flex justify-between items-baseline">
-                  <h3 className="degree">{edu.degree}</h3>
-                  <p className="dates">{edu.dates}</p>
+          {resume.education && resume.education.length > 0 && (
+            <section>
+              <h2 className="section-title">Education</h2>
+              {resume.education.map((edu) => (
+                <div key={edu.id} className="entry relative group">
+                  <div className="flex justify-between items-baseline">
+                    <h3 className="degree">{edu.degree}</h3>
+                    <p className="dates">{edu.dates}</p>
+                  </div>
+                  <p><span className="school">{edu.school}</span>, <span className="location">{edu.location}</span></p>
+                  {isEditable && <ActionButtons onEdit={() => handleEdit('education', edu.id)} onRemove={() => handleRemove('education', edu.id)} />}
                 </div>
-                <p><span className="school">{edu.school}</span>, <span className="location">{edu.location}</span></p>
-                {isEditable && <ActionButtons onEdit={() => handleEdit('education', edu.id)} onRemove={() => handleRemove('education', edu.id)} />}
-              </div>
-            ))}
-          </section>
+              ))}
+            </section>
+          )}
 
           {resume.customSections && resume.customSections.length > 0 && (
             <>
@@ -162,11 +166,13 @@ export const ResumePreview = React.forwardRef<HTMLDivElement, ResumePreviewProps
             </>
           )}
 
-          <section className="relative group skills">
-            <h2 className="section-title">Skills</h2>
-            <p className="text-sm">{resume.skills.join(" | ")}</p>
-             {isEditable && <ActionButtons onEdit={() => handleEdit('skills')} />}
-          </section>
+          {resume.skills && resume.skills.length > 0 && (
+            <section className="relative group skills">
+              <h2 className="section-title">Skills</h2>
+              <p className="text-sm">{resume.skills.join(" | ")}</p>
+              {isEditable && <ActionButtons onEdit={() => handleEdit('skills')} />}
+            </section>
+          )}
 
           {resume.achievements && resume.achievements.length > 0 && (
             <section className="relative group">

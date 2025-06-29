@@ -12,7 +12,6 @@ import {
   Sparkles,
   Trash2,
   Undo,
-  Pencil,
 } from "lucide-react";
 import { saveAs } from "file-saver";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
@@ -47,6 +46,12 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import {
+    Accordion,
+    AccordionContent,
+    AccordionItem,
+    AccordionTrigger,
+} from "@/components/ui/accordion";
 import { ResumePreview } from "./resume-preview";
 import { ScrollArea } from "./ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -79,7 +84,6 @@ const assignIdsToResume = (resume: ResumeData): ResumeDataWithIds => {
         websites: ensureUniqueIds(resume.websites || []),
         projects: ensureUniqueIds(resume.projects || []),
         customSections: ensureUniqueIds(resume.customSections || []),
-        // Ensure optional fields that are just string arrays exist
         skills: resume.skills || [],
         achievements: resume.achievements || [],
         hobbies: resume.hobbies || [],
@@ -113,7 +117,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
     redo,
     canUndo,
     canRedo,
-  } = useHistoryState<ResumeDataWithIds>(initialResumeData);
+  } = useHistoryState<ResumeDataWithIds>(assignIdsToResume(initialResumeData));
 
   const [template, setTemplate] = useState("modern");
   const previewRef = useRef<HTMLDivElement>(null);
@@ -126,7 +130,6 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
   const [editingSection, setEditingSection] = useState<EditableSection | null>(null);
   const [editFormData, setEditFormData] = useState<any>(null);
   
-  // State for ATS Scorecard
   const [jobCriteria, setJobCriteria] = useState("");
   const [atsResult, setAtsResult] = useState<{ score: number; justification: string } | null>(null);
   const [isScoring, setIsScoring] = useState(false);
@@ -173,10 +176,10 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
         dataToEdit = { name: "", url: "" };
         break;
       case 'new_project':
-        dataToEdit = { name: "", description: "", technologies: [], url: "" };
+        dataToEdit = { name: "", description: "", technologies: [""], url: "" };
         break;
       case 'new_customSection':
-        dataToEdit = { title: "New Section", content: "Details about this section." };
+        dataToEdit = { title: "New Section", content: "" };
         break;
       case 'skills':
       case 'hobbies':
@@ -226,11 +229,13 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
             break;
         }
         case 'websites': {
+            if (!draft.websites) draft.websites = [];
             const index = (draft.websites ?? []).findIndex(item => item.id === editingSection.id);
             if (index > -1) draft.websites[index] = { ...editFormData, id: editingSection.id };
             break;
         }
         case 'projects': {
+            if (!draft.projects) draft.projects = [];
             const index = (draft.projects ?? []).findIndex(item => item.id === editingSection.id);
             if (index > -1) draft.projects[index] = { ...editFormData, id: editingSection.id };
             break;
@@ -310,20 +315,24 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
     let resumeText = `Name: ${res.name}\nEmail: ${res.email}\nPhone: ${res.phone}\n\n`;
     resumeText += `Summary:\n${res.summary}\n\n`;
 
-    resumeText += "Experience:\n";
-    res.experience.forEach(exp => {
-        resumeText += `- ${exp.title} at ${exp.company} (${exp.dates}, ${exp.location})\n`;
-        exp.responsibilities.forEach(r => {
-            resumeText += `  - ${r}\n`;
+    if (res.experience?.length) {
+        resumeText += "Experience:\n";
+        res.experience.forEach(exp => {
+            resumeText += `- ${exp.title} at ${exp.company} (${exp.dates}, ${exp.location})\n`;
+            exp.responsibilities.forEach(r => {
+                resumeText += `  - ${r}\n`;
+            });
         });
-    });
-    resumeText += "\n";
+        resumeText += "\n";
+    }
 
-    resumeText += "Education:\n";
-    res.education.forEach(edu => {
-        resumeText += `- ${edu.degree} from ${edu.school} (${edu.dates}, ${edu.location})\n`;
-    });
-    resumeText += "\n";
+    if (res.education?.length) {
+        resumeText += "Education:\n";
+        res.education.forEach(edu => {
+            resumeText += `- ${edu.degree} from ${edu.school} (${edu.dates}, ${edu.location})\n`;
+        });
+        resumeText += "\n";
+    }
 
     if (res.projects?.length) {
         resumeText += "Projects:\n";
@@ -333,7 +342,20 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
         resumeText += "\n";
     }
 
-    resumeText += `Skills: ${res.skills.join(', ')}\n`;
+    if (res.skills?.length) {
+        resumeText += `Skills: ${res.skills.join(', ')}\n\n`;
+    }
+    
+    if (res.achievements?.length) {
+        resumeText += `Achievements: ${res.achievements.join(', ')}\n\n`;
+    }
+    
+    if (res.customSections?.length) {
+        res.customSections.forEach(sec => {
+            resumeText += `${sec.title}:\n${sec.content}\n\n`;
+        });
+    }
+
     return resumeText;
   };
   
@@ -383,7 +405,12 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
   
           doc.setFont('helvetica', 'bold').setFontSize(22).text(resume.name, pageWidth / 2, y, { align: 'center' });
           y += 25;
-          const contactInfo = [resume.email, resume.phone, ...(resume.websites || []).map(w => w.url)].filter(Boolean).join(' | ');
+          
+          const contactParts = [resume.email, resume.phone].filter(Boolean);
+          if (resume.websites && resume.websites.length > 0) {
+              resume.websites.forEach(w => contactParts.push(w.url));
+          }
+          const contactInfo = contactParts.join(' | ');
           doc.setFont('helvetica', 'normal').setFontSize(10).text(contactInfo, pageWidth / 2, y, { align: 'center' });
           y += 30;
   
@@ -415,7 +442,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                       y += 14;
   
                       exp.responsibilities.forEach(resp => {
-                          const respLines = doc.splitTextToSize(`- ${resp}`, contentWidth - 10);
+                          const respLines = doc.splitTextToSize(`• ${resp}`, contentWidth - 10);
                           checkPageBreak(respLines.length * 12 + 2);
                           doc.text(respLines, margin + 10, y);
                           y += respLines.length * 12 + 2;
@@ -468,12 +495,15 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
             });
           }
   
-          renderSection('Skills', () => {
-              const skillsLines = doc.splitTextToSize(resume.skills.join(', '), contentWidth);
-              checkPageBreak(skillsLines.length * 12);
-              doc.setFontSize(10).text(skillsLines, margin, y);
-              y += skillsLines.length * 12;
-          });
+          if (resume.skills.length > 0) {
+            renderSection('Skills', () => {
+                const skillsText = resume.skills.join(' • ');
+                const skillsLines = doc.splitTextToSize(skillsText, contentWidth);
+                checkPageBreak(skillsLines.length * 12);
+                doc.setFontSize(10).text(skillsLines, margin, y);
+                y += skillsLines.length * 12;
+            });
+          }
   
           doc.save(`${resume.name.replace(/\s+/g, '_') || 'resume'}_${template}_resume.pdf`);
       } catch (error) {
@@ -490,65 +520,81 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
         const createTextRuns = (text: string) => text.split('\n').flatMap((line, i) => i > 0 ? [new TextRun({ break: 1 }), new TextRun(line)] : [new TextRun(line)]);
 
         const children: Paragraph[] = [
-            new Paragraph({ text: resume.name, heading: HeadingLevel.TITLE }),
-            new Paragraph({ text: [resume.email, resume.phone].filter(Boolean).join(" | ") }),
+            new Paragraph({ text: resume.name, heading: HeadingLevel.TITLE, alignment: 'center' }),
+            new Paragraph({ text: [resume.email, resume.phone].filter(Boolean).join(" | "), alignment: 'center' }),
         ];
         if (resume.websites && resume.websites.length > 0) {
-            children.push(new Paragraph({ text: resume.websites.map(w => w.url).join(" | ") }));
+            children.push(new Paragraph({ text: resume.websites.map(w => w.url).join(" | "), alignment: 'center' }));
         }
         children.push(new Paragraph(""));
 
-        children.push(new Paragraph({ text: "Summary", heading: HeadingLevel.HEADING_1 }));
-        children.push(new Paragraph({ children: createTextRuns(resume.summary)}));
-        children.push(new Paragraph(""));
-
-        children.push(new Paragraph({ text: "Experience", heading: HeadingLevel.HEADING_1 }));
-        resume.experience.forEach(exp => {
-            children.push(new Paragraph({ children: [new TextRun({ text: exp.title, bold: true }), new TextRun(` - ${exp.company}`)]}));
-            children.push(new Paragraph({ children: [new TextRun({ text: `${exp.location} | ${exp.dates}`, italics: true })]}));
-            exp.responsibilities.forEach(resp => children.push(new Paragraph({ text: resp, bullet: { level: 0 } })));
+        const addSection = (title: string, body: () => void) => {
+            children.push(new Paragraph({ text: title, heading: HeadingLevel.HEADING_1, border: { bottom: { color: "auto", space: 1, value: "single", size: 6 } } }));
+            body();
             children.push(new Paragraph(""));
+        };
+
+        addSection('Summary', () => {
+            children.push(new Paragraph({ children: createTextRuns(resume.summary)}));
         });
-        
-        if (resume.projects && resume.projects.length > 0) {
-            children.push(new Paragraph({ text: "Projects", heading: HeadingLevel.HEADING_1 }));
-            resume.projects.forEach(proj => {
-                children.push(new Paragraph({ children: [new TextRun({ text: proj.name, bold: true })]}));
-                if(proj.url) children.push(new Paragraph({ text: proj.url }));
-                children.push(new Paragraph({ children: createTextRuns(proj.description)}));
-                children.push(new Paragraph({ text: `Technologies: ${proj.technologies.join(", ")}`, style: "IntenseQuote"}));
-                children.push(new Paragraph(""));
+
+        if (resume.experience.length > 0) {
+            addSection('Experience', () => {
+                resume.experience.forEach(exp => {
+                    children.push(new Paragraph({ children: [new TextRun({ text: exp.title, bold: true }), new TextRun(` - ${exp.company}`)]}));
+                    children.push(new Paragraph({ children: [new TextRun({ text: `${exp.location} | ${exp.dates}`, italics: true })]}));
+                    exp.responsibilities.forEach(resp => children.push(new Paragraph({ text: resp, bullet: { level: 0 } })));
+                    children.push(new Paragraph(""));
+                });
             });
         }
         
-        children.push(new Paragraph({ text: "Education", heading: HeadingLevel.HEADING_1 }));
-        resume.education.forEach(edu => {
-            children.push(new Paragraph({ children: [new TextRun({ text: `${edu.degree}, ${edu.school}`, bold: true })]}));
-            children.push(new Paragraph({ children: [new TextRun({ text: `${edu.location} | ${edu.dates}`, italics: true })]}));
-            children.push(new Paragraph(""));
-        });
+        if (resume.projects && resume.projects.length > 0) {
+            addSection('Projects', () => {
+                resume.projects.forEach(proj => {
+                    children.push(new Paragraph({ children: [new TextRun({ text: proj.name, bold: true })]}));
+                    if(proj.url) children.push(new Paragraph({ text: proj.url }));
+                    children.push(new Paragraph({ children: createTextRuns(proj.description)}));
+                    children.push(new Paragraph({ text: `Technologies: ${proj.technologies.join(", ")}`, style: "IntenseQuote"}));
+                    children.push(new Paragraph(""));
+                });
+            });
+        }
+        
+        if (resume.education.length > 0) {
+            addSection('Education', () => {
+                resume.education.forEach(edu => {
+                    children.push(new Paragraph({ children: [new TextRun({ text: `${edu.degree}, ${edu.school}`, bold: true })]}));
+                    children.push(new Paragraph({ children: [new TextRun({ text: `${edu.location} | ${edu.dates}`, italics: true })]}));
+                    children.push(new Paragraph(""));
+                });
+            });
+        }
 
         if (resume.customSections && resume.customSections.length > 0) {
           resume.customSections.forEach(sec => {
-            children.push(new Paragraph({ text: sec.title, heading: HeadingLevel.HEADING_1 }));
-            children.push(new Paragraph({ children: createTextRuns(sec.content) }));
-            children.push(new Paragraph(""));
+            addSection(sec.title, () => {
+                children.push(new Paragraph({ children: createTextRuns(sec.content) }));
+            });
           });
         }
 
-        children.push(new Paragraph({ text: "Skills", heading: HeadingLevel.HEADING_1 }));
-        children.push(new Paragraph(resume.skills.join(", ")));
-        children.push(new Paragraph(""));
+        if (resume.skills.length > 0) {
+            addSection('Skills', () => {
+                children.push(new Paragraph(resume.skills.join(", ")));
+            });
+        }
 
         if (resume.achievements && resume.achievements.length > 0) {
-            children.push(new Paragraph({ text: "Achievements", heading: HeadingLevel.HEADING_1 }));
-            resume.achievements.forEach(ach => children.push(new Paragraph({ text: ach, bullet: { level: 0 } })));
-            children.push(new Paragraph(""));
+            addSection('Achievements', () => {
+                resume.achievements.forEach(ach => children.push(new Paragraph({ text: ach, bullet: { level: 0 } })));
+            });
         }
         
         if (resume.hobbies && resume.hobbies.length > 0) {
-            children.push(new Paragraph({ text: "Hobbies & Interests", heading: HeadingLevel.HEADING_1 }));
-            children.push(new Paragraph(resume.hobbies.join(", ")));
+            addSection('Hobbies & Interests', () => {
+                children.push(new Paragraph(resume.hobbies.join(", ")));
+            });
         }
 
         const doc = new Document({ sections: [{ children }] });
@@ -567,7 +613,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
   const removeItem = (type: 'experience' | 'education' | 'websites' | 'projects' | 'customSections', id: string) => {
     handleUpdate(draft => {
       const prop = type;
-      if (Array.isArray(draft[prop])) {
+      if (Array.isArray((draft as any)[prop])) {
         (draft as any)[prop] = (draft as any)[prop].filter((item: any) => item.id !== id);
       }
     });
@@ -583,22 +629,22 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
             title = "Edit Contact Information"
             content = (
                 <div className="space-y-4">
-                    <CustomInput label="Name" value={editFormData.name} onChange={(e) => setEditFormData({...editFormData, name: e.target.value})} />
-                    <CustomInput label="Email" value={editFormData.email} onChange={(e) => setEditFormData({...editFormData, email: e.target.value})} />
-                    <CustomInput label="Phone" value={editFormData.phone} onChange={(e) => setEditFormData({...editFormData, phone: e.target.value})} />
+                    <CustomInput label="Full Name" value={editFormData.name} onChange={(e) => setEditFormData({...editFormData, name: e.target.value})} />
+                    <CustomInput label="Email Address" type="email" value={editFormData.email} onChange={(e) => setEditFormData({...editFormData, email: e.target.value})} />
+                    <CustomInput label="Phone Number" value={editFormData.phone} onChange={(e) => setEditFormData({...editFormData, phone: e.target.value})} />
                 </div>
             );
             break;
         case 'summary':
-            title = "Edit Summary"
-            content = <CustomTextarea value={editFormData.summary} onChange={(e) => setEditFormData({summary: e.target.value})} rows={6} />;
+            title = "Edit Professional Summary"
+            content = <CustomTextarea label="Summary" value={editFormData.summary} onChange={(e) => setEditFormData({summary: e.target.value})} rows={6} />;
             break;
         case 'new_experience':
         case 'experience':
             title = editingSection.type === 'new_experience' ? "Add Experience" : "Edit Experience";
             content = (
                 <div className="space-y-4">
-                    <CustomInput label="Title" value={editFormData.title} onChange={(e) => setEditFormData({...editFormData, title: e.target.value})} />
+                    <CustomInput label="Job Title" value={editFormData.title} onChange={(e) => setEditFormData({...editFormData, title: e.target.value})} />
                     <CustomInput label="Company" value={editFormData.company} onChange={(e) => setEditFormData({...editFormData, company: e.target.value})} />
                     <CustomInput label="Location" value={editFormData.location} onChange={(e) => setEditFormData({...editFormData, location: e.target.value})} />
                     <CustomInput label="Dates" value={editFormData.dates} onChange={(e) => setEditFormData({...editFormData, dates: e.target.value})} />
@@ -613,10 +659,10 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                             <Button variant="ghost" size="icon" onClick={() => {
                                  const newResp = editFormData.responsibilities.filter((_:any, i:number) => i !== index);
                                  setEditFormData({...editFormData, responsibilities: newResp});
-                            }}><Trash2 /></Button>
+                            }}><Trash2 className="h-4 w-4" /></Button>
                         </div>
                     ))}
-                    <Button variant="outline" size="sm" onClick={() => setEditFormData({...editFormData, responsibilities: [...(editFormData.responsibilities || []), ""]})}><PlusCircle className="mr-2"/> Add Responsibility</Button>
+                    <Button variant="outline" size="sm" onClick={() => setEditFormData({...editFormData, responsibilities: [...(editFormData.responsibilities || []), ""]})}><PlusCircle className="mr-2 h-4 w-4"/> Add Responsibility</Button>
                 </div>
             )
             break;
@@ -625,8 +671,8 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
              title = editingSection.type === 'new_education' ? "Add Education" : "Edit Education";
              content = (
                 <div className="space-y-4">
-                    <CustomInput label="Degree" value={editFormData.degree} onChange={e => setEditFormData({...editFormData, degree: e.target.value})} />
-                    <CustomInput label="School" value={editFormData.school} onChange={e => setEditFormData({...editFormData, school: e.target.value})} />
+                    <CustomInput label="Degree / Certificate" value={editFormData.degree} onChange={e => setEditFormData({...editFormData, degree: e.target.value})} />
+                    <CustomInput label="School / Institution" value={editFormData.school} onChange={e => setEditFormData({...editFormData, school: e.target.value})} />
                     <CustomInput label="Location" value={editFormData.location} onChange={e => setEditFormData({...editFormData, location: e.target.value})} />
                     <CustomInput label="Dates" value={editFormData.dates} onChange={e => setEditFormData({...editFormData, dates: e.target.value})} />
                 </div>
@@ -638,7 +684,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
             content = (
                 <div className="space-y-4">
                     <CustomInput label="Project Name" value={editFormData.name} onChange={e => setEditFormData({...editFormData, name: e.target.value})} />
-                    <CustomInput label="Project URL" value={editFormData.url} onChange={e => setEditFormData({...editFormData, url: e.target.value})} />
+                    <CustomInput label="Project URL" value={editFormData.url ?? ""} onChange={e => setEditFormData({...editFormData, url: e.target.value})} />
                     <CustomTextarea label="Description" value={editFormData.description} onChange={e => setEditFormData({...editFormData, description: e.target.value})} rows={4} />
                     <CustomInput label="Technologies (comma-separated)" value={(editFormData.technologies || []).join(", ")} onChange={e => setEditFormData({...editFormData, technologies: e.target.value.split(',').map(t => t.trim())})} />
                 </div>
@@ -646,10 +692,10 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
             break;
         case 'new_website':
         case 'websites':
-             title = editingSection.type === 'new_website' ? "Add Website" : "Edit Website";
+             title = editingSection.type === 'new_website' ? "Add Website/Link" : "Edit Website/Link";
              content = (
                 <div className="space-y-4">
-                    <CustomInput label="Name" value={editFormData.name} onChange={e => setEditFormData({...editFormData, name: e.target.value})} placeholder="e.g. LinkedIn, GitHub" />
+                    <CustomInput label="Name" value={editFormData.name} onChange={e => setEditFormData({...editFormData, name: e.target.value})} placeholder="e.g. LinkedIn, GitHub Portfolio" />
                     <CustomInput label="URL" value={editFormData.url} onChange={e => setEditFormData({...editFormData, url: e.target.value})} />
                 </div>
              );
@@ -691,10 +737,10 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                             <Button variant="ghost" size="icon" onClick={() => {
                                  const newAch = editFormData.filter((_:any, i:number) => i !== index);
                                  setEditFormData(newAch);
-                            }}><Trash2 /></Button>
+                            }}><Trash2 className="h-4 w-4" /></Button>
                         </div>
                     ))}
-                    <Button variant="outline" size="sm" onClick={() => setEditFormData([...(editFormData || []), ""])}><PlusCircle className="mr-2"/> Add Achievement</Button>
+                    <Button variant="outline" size="sm" onClick={() => setEditFormData([...(editFormData || []), ""])}><PlusCircle className="mr-2 h-4 w-4"/> Add Achievement</Button>
                 </div>
             );
             break;
@@ -713,15 +759,15 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
     }
     
     return (
-        <Dialog open={!!editingSection} onOpenChange={() => setEditingSection(null)}>
-            <DialogContent>
+        <Dialog open={!!editingSection} onOpenChange={(isOpen) => { if(!isOpen) { setEditingSection(null); setEditFormData(null); }}}>
+            <DialogContent className="sm:max-w-[625px]">
                 <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
-                <div className="max-h-[60vh] overflow-y-auto p-1">
+                <div className="max-h-[60vh] overflow-y-auto p-1 pr-4">
                     {content}
                 </div>
                 <DialogFooter>
                     <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
-                    <Button onClick={handleFormSave}>Save</Button>
+                    <Button onClick={handleFormSave}>Save Changes</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -729,179 +775,183 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
   }
 
   return (
-     <div className="flex h-screen bg-background">
-      <div className="flex-1 flex flex-col">
-        <header className="flex items-center justify-between p-4 border-b border-border bg-card">
-            <Button variant="ghost" onClick={onBack} className="hidden sm:flex">
-                <ChevronLeft className="mr-2" /> Back to Home
-            </Button>
-             <h2 className="text-lg font-semibold">Resume Editor</h2>
-            <div className="flex items-center gap-2">
-                <Button onClick={undo} disabled={!canUndo || editorDisabled} variant="outline" size="icon">
-                  <Undo /><span className="sr-only">Undo</span>
+     <div className="flex h-screen bg-muted/40">
+        <div className="flex-1 flex flex-col">
+            <header className="flex items-center justify-between p-4 border-b border-border bg-background shadow-sm">
+                <Button variant="outline" size="sm" onClick={onBack}>
+                    <ChevronLeft className="mr-2" /> Back to Home
                 </Button>
-                <Button onClick={redo} disabled={!canRedo || editorDisabled} variant="outline" size="icon">
-                  <Redo /><span className="sr-only">Redo</span>
-                </Button>
-                <Button onClick={handleEnhance} disabled={editorDisabled} variant="outline" size="sm">
-                  {isEnhancing ? <Loader2 className="animate-spin" /> : <Sparkles />}
-                  <span className="hidden sm:inline ml-2">Enhance</span>
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="default" size="sm" disabled={editorDisabled || isDownloading}>
-                      {isDownloading ? <Loader2 className="animate-spin" /> : <Download />}
-                      <span className="hidden sm:inline ml-2">Download</span>
+                <div className="flex items-center gap-2">
+                    <Button onClick={undo} disabled={!canUndo || editorDisabled} variant="outline" size="icon" aria-label="Undo">
+                        <Undo />
                     </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuItem onClick={handleDownloadPdf}>PDF</DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleDownloadDocx}>DOCX</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-            </div>
-        </header>
+                    <Button onClick={redo} disabled={!canRedo || editorDisabled} variant="outline" size="icon" aria-label="Redo">
+                        <Redo />
+                    </Button>
+                    <Button onClick={handleEnhance} disabled={editorDisabled} variant="outline" size="sm">
+                        {isEnhancing ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                        <span className="hidden sm:inline ml-2">Quick Enhance</span>
+                    </Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="default" size="sm" disabled={editorDisabled || isDownloading}>
+                            {isDownloading ? <Loader2 className="animate-spin" /> : <Download />}
+                            <span className="hidden sm:inline ml-2">Download</span>
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                            <DropdownMenuItem onClick={handleDownloadPdf}>PDF</DropdownMenuItem>
+                            <DropdownMenuItem onClick={handleDownloadDocx}>DOCX</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+            </header>
 
-        <main className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-8 p-8 overflow-y-auto">
-            <aside className="space-y-6">
-                <Card>
-                    <CardHeader><CardTitle>Template</CardTitle></CardHeader>
-                    <CardContent>
-                       <Select value={template} onValueChange={setTemplate}>
-                            <SelectTrigger><SelectValue placeholder="Change template" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="modern">Modern</SelectItem>
-                                <SelectItem value="classic">Classic</SelectItem>
-                                <SelectItem value="professional">Professional</SelectItem>
-                                <SelectItem value="executive">Executive</SelectItem>
-                                <SelectItem value="minimalist">Minimalist</SelectItem>
-                                <SelectItem value="creative">Creative</SelectItem>
-                                <SelectItem value="academic">Academic</SelectItem>
-                                <SelectItem value="technical">Technical</SelectItem>
-                                <SelectItem value="elegant">Elegant</SelectItem>
-                                <SelectItem value="compact">Compact</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </CardContent>
-                </Card>
-
-                 <Card>
-                    <CardHeader><CardTitle>Add Sections</CardTitle></CardHeader>
-                    <CardContent className="grid grid-cols-2 gap-4">
-                       <Button variant="outline" onClick={() => handleEdit({ type: 'new_experience' })}><PlusCircle/>Experience</Button>
-                       <Button variant="outline" onClick={() => handleEdit({ type: 'new_education' })}><PlusCircle/>Education</Button>
-                       <Button variant="outline" onClick={() => handleEdit({ type: 'new_project' })}><PlusCircle/>Project</Button>
-                       <Button variant="outline" onClick={() => handleEdit({ type: 'new_website' })}><PlusCircle/>Website</Button>
-                       <Button variant="outline" onClick={() => handleEdit({ type: 'new_customSection' })}><PlusCircle/>Custom Section</Button>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader><CardTitle>ATS Scorecard</CardTitle></CardHeader>
-                    <CardContent className="space-y-4">
-                        <p className="text-sm text-muted-foreground">
-                            Paste a job description below to see how well your resume matches.
-                        </p>
-                        <Textarea
-                            placeholder="Paste job description or criteria here..."
-                            value={jobCriteria}
-                            onChange={(e) => setJobCriteria(e.target.value)}
-                            disabled={editorDisabled}
-                            rows={6}
-                        />
-                        <Button onClick={handleScoreResume} disabled={editorDisabled || !jobCriteria} className="w-full">
-                            {isScoring ? <Loader2 className="animate-spin" /> : <Award className="mr-2"/>}
-                            Get ATS Score
-                        </Button>
-                        {(isScoring || atsResult) && (
-                            <div className="space-y-4 pt-4">
-                                {isScoring ? (
-                                    <div className="flex flex-col items-center gap-4">
-                                        <Skeleton className="h-32 w-32 rounded-full" />
-                                        <Skeleton className="h-4 w-4/5" />
-                                        <Skeleton className="h-4 w-full" />
-                                    </div>
-                                ) : (
-                                    atsResult && (
-                                    <div className="flex flex-col md:flex-row items-center gap-6">
-                                        <div className="flex flex-col items-center gap-2">
-                                            <ScoreCircle score={atsResult.score} />
-                                            <p className="text-muted-foreground text-sm">Compatibility</p>
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 p-6 overflow-hidden">
+                <aside className="lg:col-span-1 bg-background rounded-lg border border-border shadow-sm overflow-y-auto">
+                    <ScrollArea className="h-full">
+                        <div className="p-4">
+                            <Accordion type="multiple" defaultValue={["item-1", "item-2", "item-3"]} className="w-full">
+                                <AccordionItem value="item-1">
+                                    <AccordionTrigger className="font-semibold">Controls</AccordionTrigger>
+                                    <AccordionContent className="space-y-4 pt-4">
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium">Template</label>
+                                            <Select value={template} onValueChange={setTemplate}>
+                                                <SelectTrigger><SelectValue placeholder="Change template" /></SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="modern">Modern</SelectItem>
+                                                    <SelectItem value="classic">Classic</SelectItem>
+                                                    <SelectItem value="professional">Professional</SelectItem>
+                                                    <SelectItem value="executive">Executive</SelectItem>
+                                                    <SelectItem value="minimalist">Minimalist</SelectItem>
+                                                    <SelectItem value="creative">Creative</SelectItem>
+                                                    <SelectItem value="academic">Academic</SelectItem>
+                                                    <SelectItem value="technical">Technical</SelectItem>
+                                                    <SelectItem value="elegant">Elegant</SelectItem>
+                                                    <SelectItem value="compact">Compact</SelectItem>
+                                                </SelectContent>
+                                            </Select>
                                         </div>
-                                        <div className="flex-1 space-y-2">
-                                            <h4 className="font-semibold text-primary">Justification</h4>
-                                            <ScrollArea className="h-32">
-                                                <p className="text-sm text-foreground/90 whitespace-pre-wrap pr-4">
-                                                    {atsResult.justification}
-                                                </p>
-                                            </ScrollArea>
+                                         <div className="space-y-2">
+                                            <label className="text-sm font-medium">Add New Section</label>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <Button size="sm" variant="outline" onClick={() => handleEdit({ type: 'new_experience' })}><PlusCircle/>Experience</Button>
+                                                <Button size="sm" variant="outline" onClick={() => handleEdit({ type: 'new_education' })}><PlusCircle/>Education</Button>
+                                                <Button size="sm" variant="outline" onClick={() => handleEdit({ type: 'new_project' })}><PlusCircle/>Project</Button>
+                                                <Button size="sm" variant="outline" onClick={() => handleEdit({ type: 'new_website' })}><PlusCircle/>Website</Button>
+                                                <Button size="sm" variant="outline" onClick={() => handleEdit({ type: 'new_customSection' })} className="col-span-2"><PlusCircle/>Custom Section</Button>
+                                            </div>
                                         </div>
-                                    </div>
-                                    )
-                                )}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                                    </AccordionContent>
+                                </AccordionItem>
+                                
+                                <AccordionItem value="item-2">
+                                    <AccordionTrigger className="font-semibold">ATS Scorecard</AccordionTrigger>
+                                    <AccordionContent className="space-y-4 pt-4">
+                                        <p className="text-sm text-muted-foreground">
+                                            Paste a job description below to see how well your resume matches.
+                                        </p>
+                                        <Textarea
+                                            placeholder="Paste job description or criteria here..."
+                                            value={jobCriteria}
+                                            onChange={(e) => setJobCriteria(e.target.value)}
+                                            disabled={editorDisabled}
+                                            rows={6}
+                                        />
+                                        <Button onClick={handleScoreResume} disabled={editorDisabled || !jobCriteria} className="w-full">
+                                            {isScoring ? <Loader2 className="animate-spin mr-2" /> : <Award className="mr-2"/>}
+                                            Get ATS Score
+                                        </Button>
+                                        {(isScoring || atsResult) && (
+                                            <div className="space-y-4 pt-4">
+                                                {isScoring ? (
+                                                    <div className="flex flex-col items-center gap-4">
+                                                        <Skeleton className="h-24 w-24 rounded-full" />
+                                                        <Skeleton className="h-4 w-4/5" />
+                                                        <Skeleton className="h-4 w-full" />
+                                                    </div>
+                                                ) : (
+                                                    atsResult && (
+                                                    <div className="flex flex-col items-center gap-6">
+                                                        <ScoreCircle score={atsResult.score} />
+                                                        <div className="w-full space-y-2">
+                                                            <h4 className="font-semibold text-primary text-center">Analysis & Justification</h4>
+                                                            <ScrollArea className="h-40 w-full rounded-md border p-3">
+                                                                <p className="text-sm text-foreground/90 whitespace-pre-wrap">
+                                                                    {atsResult.justification}
+                                                                </p>
+                                                            </ScrollArea>
+                                                        </div>
+                                                    </div>
+                                                    )
+                                                )}
+                                            </div>
+                                        )}
+                                    </AccordionContent>
+                                </AccordionItem>
 
-                <Card>
-                    <CardHeader><CardTitle>AI Assistant</CardTitle></CardHeader>
-                    <CardContent className="space-y-4">
-                        <p className="text-sm text-muted-foreground">
-                            Describe the changes you'd like to make. For example, "Make my summary more punchy" or "Rewrite my last job's responsibilities to highlight leadership."
-                        </p>
-                        <Textarea
-                            placeholder="Your request..."
-                            value={chatQuery}
-                            onChange={(e) => setChatQuery(e.target.value)}
-                            disabled={editorDisabled}
-                            rows={4}
-                        />
-                        <Button onClick={handleChatEnhance} disabled={editorDisabled} className="w-full">
-                            {isChatEnhancing ? <Loader2 className="animate-spin" /> : <Sparkles className="mr-2"/>}
-                            Enhance with Chat
-                        </Button>
-                    </CardContent>
-                </Card>
-            </aside>
+                                <AccordionItem value="item-3">
+                                    <AccordionTrigger className="font-semibold">AI Assistant</AccordionTrigger>
+                                     <AccordionContent className="space-y-4 pt-4">
+                                        <p className="text-sm text-muted-foreground">
+                                            Describe the changes you'd like to make. For example, "Make my summary more punchy".
+                                        </p>
+                                        <Textarea
+                                            placeholder="Your request..."
+                                            value={chatQuery}
+                                            onChange={(e) => setChatQuery(e.target.value)}
+                                            disabled={editorDisabled}
+                                            rows={4}
+                                        />
+                                        <Button onClick={handleChatEnhance} disabled={editorDisabled || !chatQuery} className="w-full">
+                                            {isChatEnhancing ? <Loader2 className="animate-spin mr-2" /> : <Sparkles className="mr-2"/>}
+                                            Enhance with Chat
+                                        </Button>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            </Accordion>
+                        </div>
+                    </ScrollArea>
+                </aside>
 
-            <div className="lg:col-span-1">
-                 <ScrollArea className="h-full">
-                    <div className="p-4 bg-gray-800 rounded-lg">
-                       <ResumePreview 
-                           ref={previewRef} 
-                           resumeData={resume} 
-                           templateName={template} 
-                           onEdit={handleEdit}
-                           onRemove={removeItem}
-                           isEditable
-                       />
-                    </div>
-                 </ScrollArea>
+                <main className="lg:col-span-2 overflow-hidden flex items-start justify-center">
+                    <ScrollArea className="h-full w-full">
+                        <div className="p-4 bg-background rounded-lg border border-border shadow-sm flex justify-center">
+                           <ResumePreview 
+                               ref={previewRef} 
+                               resumeData={resume} 
+                               templateName={template} 
+                               onEdit={handleEdit}
+                               onRemove={removeItem}
+                               isEditable
+                               className="w-full max-w-[8.5in]"
+                           />
+                        </div>
+                    </ScrollArea>
+                </main>
             </div>
-        </main>
-      </div>
-
+        </div>
       {renderEditDialog()}
     </div>
   );
 }
 
 const ScoreCircle = ({ score }: { score: number }) => {
-    const circumference = 2 * Math.PI * 45;
+    const circumference = 2 * Math.PI * 40; // radius is 40
     const offset = circumference - (score / 100) * circumference;
 
     return (
-      <div className="relative h-32 w-32">
-        <svg className="transform -rotate-90" width="128" height="128">
+      <div className="relative h-24 w-24">
+        <svg className="transform -rotate-90" width="96" height="96" viewBox="0 0 100 100">
           <circle
             className="text-secondary"
             strokeWidth="10"
             stroke="currentColor"
             fill="transparent"
-            r="45"
-            cx="64"
-            cy="64"
+            r="40"
+            cx="50"
+            cy="50"
           />
           <circle
             className="text-primary transition-all duration-1000 ease-out"
@@ -911,12 +961,12 @@ const ScoreCircle = ({ score }: { score: number }) => {
             strokeDasharray={circumference}
             strokeDashoffset={offset}
             strokeLinecap="round"
-            r="45"
-            cx="64"
-            cy="64"
+            r="40"
+            cx="50"
+            cy="50"
           />
         </svg>
-        <span className="absolute inset-0 flex items-center justify-center font-headline text-3xl font-bold text-primary">
+        <span className="absolute inset-0 flex items-center justify-center text-2xl font-bold text-primary">
           {score}
         </span>
       </div>
