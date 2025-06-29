@@ -4,14 +4,24 @@
 import React, { useRef, useState } from "react";
 import {
   Award,
+  Briefcase,
   ChevronLeft,
   Download,
+  FileText,
+  GraduationCap,
+  Lightbulb,
+  Link as LinkIcon,
   Loader2,
   PlusCircle,
+  PlusSquare,
   Redo,
+  Smile,
   Sparkles,
   Trash2,
   Undo,
+  User,
+  View,
+  Wrench,
 } from "lucide-react";
 import { saveAs } from "file-saver";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
@@ -46,24 +56,32 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
-import {
-    Accordion,
-    AccordionContent,
-    AccordionItem,
-    AccordionTrigger,
-} from "@/components/ui/accordion";
 import { ResumePreview } from "./resume-preview";
 import { ScrollArea } from "./ui/scroll-area";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
 import { Skeleton } from "./ui/skeleton";
+import { cn } from "@/lib/utils";
 
 interface ResumeEditorProps {
   initialResumeData: ResumeDataWithIds;
   onBack: () => void;
 }
 
+const SECTIONS = [
+  { id: 'contact', title: 'Contact Info', icon: User },
+  { id: 'summary', title: 'Summary', icon: FileText },
+  { id: 'experience', title: 'Experience', icon: Briefcase },
+  { id: 'education', title: 'Education', icon: GraduationCap },
+  { id: 'projects', title: 'Projects', icon: Lightbulb },
+  { id: 'skills', title: 'Skills', icon: Wrench },
+  { id: 'websites', title: 'Websites & Links', icon: LinkIcon },
+  { id: 'achievements', title: 'Achievements', icon: Award },
+  { id: 'hobbies', title: 'Hobbies', icon: Smile },
+  { id: 'customSections', title: 'Custom Sections', icon: PlusSquare },
+];
+
+
 // Helper to ensure all list items have a client-side ID.
-// The AI may create new items without an ID, so we need to add one.
 const assignIdsToResume = (resume: ResumeData): ResumeDataWithIds => {
     const ensureUniqueIds = (arr: any[] = []) => {
         const seenIds = new Set<string>();
@@ -120,7 +138,6 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
   } = useHistoryState<ResumeDataWithIds>(assignIdsToResume(initialResumeData));
 
   const [template, setTemplate] = useState("modern");
-  const previewRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [isChatEnhancing, setIsChatEnhancing] = useState(false);
@@ -133,6 +150,9 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
   const [jobCriteria, setJobCriteria] = useState("");
   const [atsResult, setAtsResult] = useState<{ score: number; justification: string } | null>(null);
   const [isScoring, setIsScoring] = useState(false);
+
+  const [activeSection, setActiveSection] = useState<string>('contact');
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
 
   const handleUpdate = (updater: (draft: ResumeDataWithIds) => void) => {
@@ -182,9 +202,13 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
         dataToEdit = { title: "New Section", content: "" };
         break;
       case 'skills':
+        dataToEdit = resume.skills ?? [];
+        break;
       case 'hobbies':
+        dataToEdit = resume.hobbies ?? [];
+        break;
       case 'achievements':
-        dataToEdit = resume[section.type] ?? [];
+        dataToEdit = resume.achievements ?? [];
         break;
       default:
         console.error("Unhandled section type in handleEdit:", section);
@@ -265,9 +289,13 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
             draft.customSections.push({ ...editFormData, id: crypto.randomUUID() });
             break;
         case 'skills':
+          draft.skills = editFormData;
+          break;
         case 'hobbies':
+            draft.hobbies = editFormData;
+            break;
         case 'achievements':
-            draft[editingSection.type] = editFormData;
+            draft.achievements = editFormData;
             break;
       }
     });
@@ -774,168 +802,300 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
     )
   }
 
-  return (
-     <div className="flex h-screen bg-muted/40">
-        <div className="flex-1 flex flex-col">
-            <header className="flex items-center justify-between p-4 border-b border-border bg-background shadow-sm">
-                <Button variant="outline" size="sm" onClick={onBack}>
-                    <ChevronLeft className="mr-2" /> Back to Home
-                </Button>
-                <div className="flex items-center gap-2">
-                    <Button onClick={undo} disabled={!canUndo || editorDisabled} variant="outline" size="icon" aria-label="Undo">
-                        <Undo />
-                    </Button>
-                    <Button onClick={redo} disabled={!canRedo || editorDisabled} variant="outline" size="icon" aria-label="Redo">
-                        <Redo />
-                    </Button>
-                    <Button onClick={handleEnhance} disabled={editorDisabled} variant="outline" size="sm">
-                        {isEnhancing ? <Loader2 className="animate-spin" /> : <Sparkles />}
-                        <span className="hidden sm:inline ml-2">Quick Enhance</span>
-                    </Button>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="default" size="sm" disabled={editorDisabled || isDownloading}>
-                            {isDownloading ? <Loader2 className="animate-spin" /> : <Download />}
-                            <span className="hidden sm:inline ml-2">Download</span>
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                            <DropdownMenuItem onClick={handleDownloadPdf}>PDF</DropdownMenuItem>
-                            <DropdownMenuItem onClick={handleDownloadDocx}>DOCX</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+  const renderSectionEditor = (sectionId: string) => {
+    switch(sectionId) {
+        case 'contact':
+            return <SectionWrapper title="Contact Information" description="Provide your name and contact details.">
+                <div className="space-y-4 max-w-lg">
+                    <CustomInput label="Full Name" value={resume.name} onChange={e => handleUpdate(d => d.name = e.target.value)} />
+                    <CustomInput label="Email" type="email" value={resume.email} onChange={e => handleUpdate(d => d.email = e.target.value)} />
+                    <CustomInput label="Phone" value={resume.phone} onChange={e => handleUpdate(d => d.phone = e.target.value)} />
                 </div>
-            </header>
+            </SectionWrapper>
+        case 'summary':
+            return <SectionWrapper title="Professional Summary" description="Write a brief summary of your skills and experience.">
+                 <CustomTextarea label="Summary" value={resume.summary} onChange={e => handleUpdate(d => d.summary = e.target.value)} rows={8} />
+            </SectionWrapper>
+        case 'experience':
+            return <ListSectionWrapper
+                title="Work Experience"
+                description="Detail your professional roles and responsibilities."
+                items={resume.experience}
+                onAddItem={() => handleEdit({type: 'new_experience'})}
+                renderItem={(item) => (
+                    <>
+                        <CardHeader>
+                            <CardTitle>{item.title}</CardTitle>
+                            <CardDescription>{item.company} | {item.location} | {item.dates}</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                           <ul className="list-disc pl-5 text-sm space-y-1">
+                             {item.responsibilities.map((r, i) => <li key={i}>{r}</li>)}
+                           </ul>
+                        </CardContent>
+                    </>
+                )}
+                onEditItem={(item) => handleEdit({type: 'experience', id: item.id})}
+                onRemoveItem={(item) => removeItem('experience', item.id)}
+            />
+        case 'education':
+            return <ListSectionWrapper
+                title="Education"
+                description="List your academic qualifications and degrees."
+                items={resume.education}
+                onAddItem={() => handleEdit({type: 'new_education'})}
+                renderItem={(item) => (
+                    <CardHeader>
+                        <CardTitle>{item.degree}</CardTitle>
+                        <CardDescription>{item.school} | {item.location} | {item.dates}</CardDescription>
+                    </CardHeader>
+                )}
+                onEditItem={(item) => handleEdit({type: 'education', id: item.id})}
+                onRemoveItem={(item) => removeItem('education', item.id)}
+            />
+        case 'projects':
+            return <ListSectionWrapper
+                title="Projects"
+                description="Showcase your personal or professional projects."
+                items={resume.projects || []}
+                onAddItem={() => handleEdit({type: 'new_project'})}
+                renderItem={(item) => (
+                    <>
+                     <CardHeader>
+                        <CardTitle>{item.name}</CardTitle>
+                        <CardDescription>{item.technologies.join(', ')}</CardDescription>
+                    </CardHeader>
+                    <CardContent><p>{item.description}</p></CardContent>
+                    </>
+                )}
+                onEditItem={(item) => handleEdit({type: 'projects', id: item.id})}
+                onRemoveItem={(item) => removeItem('projects', item.id)}
+            />
+         case 'websites':
+            return <ListSectionWrapper
+                title="Websites & Links"
+                description="Include links to your portfolio, LinkedIn, or GitHub."
+                items={resume.websites || []}
+                onAddItem={() => handleEdit({type: 'new_website'})}
+                renderItem={(item) => (
+                    <CardHeader>
+                        <CardTitle>{item.name}</CardTitle>
+                        <CardDescription>{item.url}</CardDescription>
+                    </CardHeader>
+                )}
+                onEditItem={(item) => handleEdit({type: 'websites', id: item.id})}
+                onRemoveItem={(item) => removeItem('websites', item.id)}
+            />
+        case 'skills':
+             return <SectionWrapper title="Skills" description="List your key skills, separated by commas.">
+                 <CustomTextarea label="Skills" value={(resume.skills || []).join(', ')} onChange={e => handleUpdate(d => d.skills = e.target.value.split(',').map(s => s.trim()))} rows={5} />
+            </SectionWrapper>
+        case 'achievements':
+             return <ListSectionWrapper
+                title="Achievements"
+                description="List any awards, honors, or significant achievements."
+                items={(resume.achievements || []).map(ach => ({id: ach, content: ach}))}
+                onAddItem={() => handleUpdate(d => d.achievements = [...(d.achievements || []), "New Achievement"])}
+                renderItem={(item) => <CardHeader><CardTitle>{item.content}</CardTitle></CardHeader>}
+                onEditItem={(item) => handleEdit({type: 'achievements'})}
+                onRemoveItem={(item) => handleUpdate(d => d.achievements = (d.achievements || []).filter(ach => ach !== item.id))}
+                editAll
+            />
+        case 'hobbies':
+            return <SectionWrapper title="Hobbies & Interests" description="List your hobbies, separated by commas.">
+                 <CustomTextarea label="Hobbies" value={(resume.hobbies || []).join(', ')} onChange={e => handleUpdate(d => d.hobbies = e.target.value.split(',').map(s => s.trim()))} rows={4} />
+            </SectionWrapper>
+        case 'customSections':
+             return <ListSectionWrapper
+                title="Custom Sections"
+                description="Add your own sections like 'Certifications' or 'Languages'."
+                items={resume.customSections || []}
+                onAddItem={() => handleEdit({type: 'new_customSection'})}
+                renderItem={(item) => (
+                   <>
+                    <CardHeader>
+                        <CardTitle>{item.title}</CardTitle>
+                    </CardHeader>
+                    <CardContent><p className="whitespace-pre-wrap">{item.content}</p></CardContent>
+                   </>
+                )}
+                onEditItem={(item) => handleEdit({type: 'customSections', id: item.id})}
+                onRemoveItem={(item) => removeItem('customSections', item.id)}
+            />
+        default:
+            return <div className="p-8">Please select a section to edit.</div>
+    }
+  }
 
-            <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 p-6 overflow-hidden">
-                <aside className="lg:col-span-1 bg-background rounded-lg border border-border shadow-sm overflow-y-auto">
-                    <ScrollArea className="h-full">
-                        <div className="p-4">
-                            <Accordion type="multiple" defaultValue={["item-1", "item-2", "item-3"]} className="w-full">
-                                <AccordionItem value="item-1">
-                                    <AccordionTrigger className="font-semibold">Controls</AccordionTrigger>
-                                    <AccordionContent className="space-y-4 pt-4">
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium">Template</label>
-                                            <Select value={template} onValueChange={setTemplate}>
-                                                <SelectTrigger><SelectValue placeholder="Change template" /></SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="modern">Modern</SelectItem>
-                                                    <SelectItem value="classic">Classic</SelectItem>
-                                                    <SelectItem value="professional">Professional</SelectItem>
-                                                    <SelectItem value="executive">Executive</SelectItem>
-                                                    <SelectItem value="minimalist">Minimalist</SelectItem>
-                                                    <SelectItem value="creative">Creative</SelectItem>
-                                                    <SelectItem value="academic">Academic</SelectItem>
-                                                    <SelectItem value="technical">Technical</SelectItem>
-                                                    <SelectItem value="elegant">Elegant</SelectItem>
-                                                    <SelectItem value="compact">Compact</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                         <div className="space-y-2">
-                                            <label className="text-sm font-medium">Add New Section</label>
-                                            <div className="grid grid-cols-2 gap-2">
-                                                <Button size="sm" variant="outline" onClick={() => handleEdit({ type: 'new_experience' })}><PlusCircle/>Experience</Button>
-                                                <Button size="sm" variant="outline" onClick={() => handleEdit({ type: 'new_education' })}><PlusCircle/>Education</Button>
-                                                <Button size="sm" variant="outline" onClick={() => handleEdit({ type: 'new_project' })}><PlusCircle/>Project</Button>
-                                                <Button size="sm" variant="outline" onClick={() => handleEdit({ type: 'new_website' })}><PlusCircle/>Website</Button>
-                                                <Button size="sm" variant="outline" onClick={() => handleEdit({ type: 'new_customSection' })} className="col-span-2"><PlusCircle/>Custom Section</Button>
-                                            </div>
-                                        </div>
-                                    </AccordionContent>
-                                </AccordionItem>
-                                
-                                <AccordionItem value="item-2">
-                                    <AccordionTrigger className="font-semibold">ATS Scorecard</AccordionTrigger>
-                                    <AccordionContent className="space-y-4 pt-4">
-                                        <p className="text-sm text-muted-foreground">
-                                            Paste a job description below to see how well your resume matches.
-                                        </p>
-                                        <Textarea
-                                            placeholder="Paste job description or criteria here..."
-                                            value={jobCriteria}
-                                            onChange={(e) => setJobCriteria(e.target.value)}
-                                            disabled={editorDisabled}
-                                            rows={6}
-                                        />
-                                        <Button onClick={handleScoreResume} disabled={editorDisabled || !jobCriteria} className="w-full">
-                                            {isScoring ? <Loader2 className="animate-spin mr-2" /> : <Award className="mr-2"/>}
-                                            Get ATS Score
-                                        </Button>
-                                        {(isScoring || atsResult) && (
-                                            <div className="space-y-4 pt-4">
-                                                {isScoring ? (
-                                                    <div className="flex flex-col items-center gap-4">
-                                                        <Skeleton className="h-24 w-24 rounded-full" />
-                                                        <Skeleton className="h-4 w-4/5" />
-                                                        <Skeleton className="h-4 w-full" />
-                                                    </div>
-                                                ) : (
-                                                    atsResult && (
-                                                    <div className="flex flex-col items-center gap-6">
-                                                        <ScoreCircle score={atsResult.score} />
-                                                        <div className="w-full space-y-2">
-                                                            <h4 className="font-semibold text-primary text-center">Analysis & Justification</h4>
-                                                            <ScrollArea className="h-40 w-full rounded-md border p-3">
-                                                                <p className="text-sm text-foreground/90 whitespace-pre-wrap">
-                                                                    {atsResult.justification}
-                                                                </p>
-                                                            </ScrollArea>
-                                                        </div>
-                                                    </div>
-                                                    )
-                                                )}
-                                            </div>
-                                        )}
-                                    </AccordionContent>
-                                </AccordionItem>
-
-                                <AccordionItem value="item-3">
-                                    <AccordionTrigger className="font-semibold">AI Assistant</AccordionTrigger>
-                                     <AccordionContent className="space-y-4 pt-4">
-                                        <p className="text-sm text-muted-foreground">
-                                            Describe the changes you'd like to make. For example, "Make my summary more punchy".
-                                        </p>
-                                        <Textarea
-                                            placeholder="Your request..."
-                                            value={chatQuery}
-                                            onChange={(e) => setChatQuery(e.target.value)}
-                                            disabled={editorDisabled}
-                                            rows={4}
-                                        />
-                                        <Button onClick={handleChatEnhance} disabled={editorDisabled || !chatQuery} className="w-full">
-                                            {isChatEnhancing ? <Loader2 className="animate-spin mr-2" /> : <Sparkles className="mr-2"/>}
-                                            Enhance with Chat
-                                        </Button>
-                                    </AccordionContent>
-                                </AccordionItem>
-                            </Accordion>
-                        </div>
-                    </ScrollArea>
-                </aside>
-
-                <main className="lg:col-span-2 overflow-hidden flex items-start justify-center">
-                    <ScrollArea className="h-full w-full">
-                        <div className="p-4 bg-background rounded-lg border border-border shadow-sm flex justify-center">
-                           <ResumePreview 
-                               ref={previewRef} 
-                               resumeData={resume} 
-                               templateName={template} 
-                               onEdit={handleEdit}
-                               onRemove={removeItem}
-                               isEditable
-                               className="w-full max-w-[8.5in]"
-                           />
-                        </div>
-                    </ScrollArea>
-                </main>
+  return (
+     <div className="flex h-screen bg-muted/40 flex-col">
+        <header className="flex items-center justify-between p-4 border-b border-border bg-background shadow-sm">
+            <Button variant="outline" size="sm" onClick={onBack}>
+                <ChevronLeft className="mr-2" /> Back to Home
+            </Button>
+            <div className="flex items-center gap-2">
+                <Button onClick={undo} disabled={!canUndo || editorDisabled} variant="outline" size="icon" aria-label="Undo">
+                    <Undo />
+                </Button>
+                <Button onClick={redo} disabled={!canRedo || editorDisabled} variant="outline" size="icon" aria-label="Redo">
+                    <Redo />
+                </Button>
+                <Button onClick={() => setIsPreviewOpen(true)} variant="outline" size="sm">
+                    <View className="mr-2" /> Preview
+                </Button>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="default" size="sm" disabled={editorDisabled || isDownloading}>
+                        {isDownloading ? <Loader2 className="animate-spin" /> : <Download />}
+                        <span className="hidden sm:inline ml-2">Download</span>
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                        <DropdownMenuItem onClick={handleDownloadPdf}>PDF</DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleDownloadDocx}>DOCX</DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
+        </header>
+
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-5 xl:grid-cols-4 gap-6 p-6 overflow-hidden">
+            <aside className="md:col-span-1 bg-background rounded-lg border border-border shadow-sm">
+                <ScrollArea className="h-full">
+                    <nav className="p-4 space-y-2">
+                        <h3 className="px-2 text-lg font-semibold tracking-tight">Sections</h3>
+                        {SECTIONS.map(section => (
+                            <Button
+                                key={section.id}
+                                variant={activeSection === section.id ? "secondary" : "ghost"}
+                                className="w-full justify-start"
+                                onClick={() => setActiveSection(section.id)}
+                            >
+                                <section.icon className="mr-2" />
+                                {section.title}
+                            </Button>
+                        ))}
+                    </nav>
+                </ScrollArea>
+            </aside>
+
+            <main className="md:col-span-4 xl:col-span-3 overflow-hidden flex flex-col">
+                <ScrollArea className="h-full">
+                    <div className="p-1 pr-4">
+                      {renderSectionEditor(activeSection)}
+                    </div>
+                </ScrollArea>
+            </main>
         </div>
-      {renderEditDialog()}
+
+        {/* Preview Modal */}
+        <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+            <DialogContent className="max-w-4xl h-[90vh]">
+                 <DialogHeader><DialogTitle>Resume Preview</DialogTitle></DialogHeader>
+                 <ScrollArea className="h-full w-full">
+                    <div className="p-4 bg-secondary rounded-lg flex justify-center">
+                        <ResumePreview
+                            resumeData={resume}
+                            templateName={template}
+                            isEditable={false} // Preview is not editable
+                            className="w-full max-w-[8.5in]"
+                        />
+                    </div>
+                 </ScrollArea>
+                 <DialogFooter>
+                    <div className="w-full flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                             <label className="text-sm font-medium">Template:</label>
+                             <Select value={template} onValueChange={setTemplate}>
+                                 <SelectTrigger className="w-48"><SelectValue placeholder="Change template" /></SelectTrigger>
+                                 <SelectContent>
+                                     <SelectItem value="modern">Modern</SelectItem>
+                                     <SelectItem value="classic">Classic</SelectItem>
+                                     <SelectItem value="professional">Professional</SelectItem>
+                                     <SelectItem value="executive">Executive</SelectItem>
+                                     <SelectItem value="minimalist">Minimalist</SelectItem>
+                                     <SelectItem value="creative">Creative</SelectItem>
+                                     <SelectItem value="academic">Academic</SelectItem>
+                                     <SelectItem value="technical">Technical</SelectItem>
+                                     <SelectItem value="elegant">Elegant</SelectItem>
+                                     <SelectItem value="compact">Compact</SelectItem>
+                                 </SelectContent>
+                             </Select>
+                        </div>
+                        <DialogClose asChild>
+                            <Button>Close</Button>
+                        </DialogClose>
+                    </div>
+                 </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
+        {/* Item Edit Modal */}
+        {renderEditDialog()}
     </div>
   );
 }
+
+const SectionWrapper = ({ title, description, children }: { title: string, description: string, children: React.ReactNode }) => (
+    <Card>
+        <CardHeader>
+            <CardTitle>{title}</CardTitle>
+            <CardDescription>{description}</CardDescription>
+        </CardHeader>
+        <CardContent>
+            {children}
+        </CardContent>
+    </Card>
+);
+
+const ListSectionWrapper = <T extends { id: string }>({ title, description, items, onAddItem, renderItem, onEditItem, onRemoveItem, editAll = false }: {
+    title: string,
+    description: string,
+    items: T[],
+    onAddItem: () => void,
+    renderItem: (item: T) => React.ReactNode,
+    onEditItem: (item: T) => void,
+    onRemoveItem: (item: T) => void,
+    editAll?: boolean
+}) => (
+    <div className="space-y-6">
+        <div className="flex justify-between items-start">
+            <div>
+                <h2 className="text-2xl font-bold tracking-tight">{title}</h2>
+                <p className="text-muted-foreground">{description}</p>
+            </div>
+            {editAll ? (
+                 <Button variant="outline" onClick={() => onEditItem({} as T)}>
+                    <Pencil className="mr-2" /> Edit All
+                </Button>
+            ) : (
+                <Button onClick={onAddItem}>
+                    <PlusCircle className="mr-2" /> Add New
+                </Button>
+            )}
+        </div>
+        <div className="space-y-4">
+            {items.map(item => (
+                <Card key={item.id}>
+                    <div className="relative">
+                        {renderItem(item)}
+                        {!editAll && (
+                            <div className="absolute top-4 right-4 flex gap-2">
+                                <Button variant="outline" size="icon" onClick={() => onEditItem(item)}><Pencil className="h-4 w-4" /></Button>
+                                <Button variant="destructive" size="icon" onClick={() => onRemoveItem(item)}><Trash2 className="h-4 w-4" /></Button>
+                            </div>
+                        )}
+                    </div>
+                </Card>
+            ))}
+            {items.length === 0 && (
+                <div className="text-center py-12 border-2 border-dashed rounded-lg">
+                    <p className="text-muted-foreground">No items added yet.</p>
+                </div>
+            )}
+        </div>
+    </div>
+)
+
 
 const ScoreCircle = ({ score }: { score: number }) => {
     const circumference = 2 * Math.PI * 40; // radius is 40
