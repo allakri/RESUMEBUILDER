@@ -29,7 +29,7 @@ import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import type { ResumeData, ResumeDataWithIds } from "@/ai/resume-schema";
-import { enhanceResume } from "@/ai/flows/enhance-resume";
+import { enhanceResumeWithReference } from "@/ai/flows/enhance-resume-with-reference";
 import { chatEnhanceResume } from "@/ai/flows/chat-enhance-resume";
 import { atsScorecard } from "@/ai/flows/ats-scorecard";
 import { useHistoryState } from "@/hooks/use-history-state";
@@ -142,9 +142,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
 
   const [template, setTemplate] = useState("modern");
   const [isDownloading, setIsDownloading] = useState(false);
-  const [isEnhancing, setIsEnhancing] = useState(false);
   const [isChatEnhancing, setIsChatEnhancing] = useState(false);
-  const [chatQuery, setChatQuery] = useState("");
   const { toast } = useToast();
 
   const [editingSection, setEditingSection] = useState<EditableSection | null>(null);
@@ -159,6 +157,9 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   const previewRef = useRef<HTMLDivElement>(null);
+  const [chatQuery, setChatQuery] = useState("");
+  const [referenceFile, setReferenceFile] = useState<File | null>(null);
+  const [referenceDataUri, setReferenceDataUri] = useState<string | null>(null);
 
 
   const handleUpdate = (updater: (draft: ResumeDataWithIds) => void) => {
@@ -310,19 +311,30 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
     setEditFormData(null);
   }
 
-  const handleEnhance = async () => {
-    setIsEnhancing(true);
-    try {
-      const enhancedData = await enhanceResume(resume);
-      const finalResume = assignIdsToResume(enhancedData);
-      setResume(finalResume);
-      toast({ title: "Resume Enhanced!", description: "Your resume has been improved by AI." });
-    } catch (error) {
-      console.error(error);
-      toast({ variant: "destructive", title: "Enhancement Failed", description: "There was an error enhancing your resume." });
-    } finally {
-      setIsEnhancing(false);
+  const handleReferenceFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({
+          variant: "destructive",
+          title: "File too large",
+          description: "Please upload a reference file smaller than 5MB.",
+        });
+        return;
+      }
+      setReferenceFile(file);
+      const reader = new FileReader();
+      reader.onload = (e) => setReferenceDataUri(e.target?.result as string);
+      reader.readAsDataURL(file);
     }
+  };
+
+  const clearReferenceFile = () => {
+    setReferenceFile(null);
+    setReferenceDataUri(null);
+    // Also clear the file input visually
+    const input = document.getElementById('reference-upload') as HTMLInputElement;
+    if (input) input.value = '';
   };
 
   const handleChatEnhance = async () => {
@@ -332,10 +344,21 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
     }
     setIsChatEnhancing(true);
     try {
-        const enhancedData = await chatEnhanceResume({ resume, query: chatQuery });
+        let enhancedData: ResumeData;
+        if (referenceDataUri) {
+            enhancedData = await enhanceResumeWithReference({
+                resume,
+                query: chatQuery,
+                referenceDataUri,
+            });
+        } else {
+            enhancedData = await chatEnhanceResume({ resume, query: chatQuery });
+        }
+        
         const finalResume = assignIdsToResume(enhancedData);
         setResume(finalResume);
         setChatQuery("");
+        // Don't clear reference file, user might want to reuse it
         toast({ title: "AI Enhancement Complete!", description: "Your resume has been updated based on your request." });
     } catch (error) {
         console.error("Chat enhancement failed:", error);
@@ -344,6 +367,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
         setIsChatEnhancing(false);
     }
   };
+
 
   const convertResumeToString = (res: ResumeDataWithIds): string => {
     let resumeText = `Name: ${res.name}\nEmail: ${res.email}\nPhone: ${res.phone}\n\n`;
@@ -436,12 +460,18 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
       }
   
       try {
+          // Temporarily set the body background to white for the capture
+          document.body.style.backgroundColor = 'white';
+
           const canvas = await html2canvas(elementToCapture, {
               scale: 3, // Higher scale for better resolution
               useCORS: true,
               backgroundColor: '#ffffff', // Ensure background is white for capture
           });
           
+          // Revert body background color
+          document.body.style.backgroundColor = '';
+
           const imgData = canvas.toDataURL('image/png');
           const pdf = new jsPDF({
               orientation: 'portrait',
@@ -456,7 +486,10 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
           const canvasHeight = canvas.height;
           
           // Maintain aspect ratio
-          const imgHeight = (canvasHeight * pdfWidth) / canvasWidth;
+          const imgRatio = canvasWidth / canvasHeight;
+          const pdfRatio = pdfWidth / pdfHeight;
+
+          let imgHeight = (canvasHeight * pdfWidth) / canvasWidth;
           let heightLeft = imgHeight;
           let position = 0;
   
@@ -464,7 +497,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
           heightLeft -= pdfHeight;
   
           while (heightLeft > 0) {
-              position -= pdfHeight;
+              position = position - pdfHeight;
               pdf.addPage();
               pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
               heightLeft -= pdfHeight;
@@ -480,6 +513,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
           });
       } finally {
           setIsDownloading(false);
+          document.body.style.backgroundColor = '';
       }
   };
 
@@ -594,7 +628,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
     }
   };
 
-  const editorDisabled = isDownloading || isEnhancing || isChatEnhancing || isScoring;
+  const editorDisabled = isDownloading || isChatEnhancing || isScoring;
   
   const removeItem = (type: 'experience' | 'education' | 'websites' | 'projects' | 'customSections', id: string) => {
     handleUpdate(draft => {
@@ -941,15 +975,38 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                             <AccordionTrigger className="p-4 font-semibold">AI Assistant</AccordionTrigger>
                             <AccordionContent className="p-4 pt-0">
                                 <div className="space-y-4">
-                                     <p className="text-sm text-muted-foreground">Ask the AI to improve your resume. Try things like "Make my summary more professional" or "Rewrite my last job to focus on leadership skills."</p>
+                                     <p className="text-sm text-muted-foreground">Ask the AI to improve your resume. Attach a job description for tailored suggestions.</p>
                                     <Textarea
-                                        placeholder="Your request..."
+                                        placeholder="Your request... e.g., 'Tailor my summary for this job.'"
                                         value={chatQuery}
                                         onChange={(e) => setChatQuery(e.target.value)}
                                         rows={4}
                                         disabled={editorDisabled}
                                     />
-                                    <Button onClick={handleChatEnhance} disabled={editorDisabled} className="w-full">
+                                    <div className="space-y-2">
+                                        <label htmlFor="reference-upload" className="text-sm font-medium text-foreground">
+                                            Reference Document (Optional)
+                                        </label>
+                                        <div className="flex items-center gap-2">
+                                            <Input
+                                                id="reference-upload"
+                                                type="file"
+                                                className="flex-1"
+                                                onChange={handleReferenceFileChange}
+                                                disabled={editorDisabled}
+                                                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                                            />
+                                            <Button variant="ghost" size="icon" onClick={clearReferenceFile} disabled={!referenceFile || editorDisabled} aria-label="Clear reference file">
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                        {referenceFile && (
+                                            <p className="text-xs text-muted-foreground">
+                                                Attached: {referenceFile.name}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <Button onClick={handleChatEnhance} disabled={editorDisabled || !chatQuery} className="w-full">
                                         {isChatEnhancing ? <Loader2 className="animate-spin" /> : <Sparkles />}
                                         Enhance with AI
                                     </Button>
