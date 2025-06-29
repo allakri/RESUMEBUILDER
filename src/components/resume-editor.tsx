@@ -29,9 +29,8 @@ import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import type { ResumeData, ResumeDataWithIds } from "@/ai/resume-schema";
-import { enhanceResumeWithReference } from "@/ai/flows/enhance-resume-with-reference";
+import { enhanceResumeWithReference, type AIFeedbackData } from "@/ai/flows/enhance-resume-with-reference";
 import { chatEnhanceResume } from "@/ai/flows/chat-enhance-resume";
-import { atsScorecard } from "@/ai/flows/ats-scorecard";
 import { useHistoryState } from "@/hooks/use-history-state";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -64,6 +63,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Skeleton } from "./ui/skeleton";
 import { cn } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
+import { Badge } from "./ui/badge";
 
 interface ResumeEditorProps {
   initialResumeData: ResumeDataWithIds;
@@ -148,18 +148,15 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
   const [editingSection, setEditingSection] = useState<EditableSection | null>(null);
   const [editFormData, setEditFormData] = useState<any>(null);
   
-  const [jobCriteria, setJobCriteria] = useState("");
-  const [atsResult, setAtsResult] = useState<{ score: number; justification: string } | null>(null);
-  const [isScoring, setIsScoring] = useState(false);
+  const [aiFeedback, setAiFeedback] = useState<AIFeedbackData | null>(null);
 
-  const [activeView, setActiveView] = useState<'editor' | 'preview'>('editor');
   const [activeSection, setActiveSection] = useState<string>('contact');
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   const previewRef = useRef<HTMLDivElement>(null);
   const [chatQuery, setChatQuery] = useState("");
-  const [referenceFile, setReferenceFile] = useState<File | null>(null);
-  const [referenceDataUri, setReferenceDataUri] = useState<string | null>(null);
+  const [referenceFiles, setReferenceFiles] = useState<File[]>([]);
+  const [referenceDataUris, setReferenceDataUris] = useState<string[]>([]);
 
 
   const handleUpdate = (updater: (draft: ResumeDataWithIds) => void) => {
@@ -312,27 +309,44 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
   }
 
   const handleReferenceFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        toast({
-          variant: "destructive",
-          title: "File too large",
-          description: "Please upload a reference file smaller than 5MB.",
+    const files = event.target.files;
+    if (files) {
+      const fileList = Array.from(files);
+      // Validate files
+      const validFiles = fileList.filter(file => {
+        if (file.size > 5 * 1024 * 1024) { // 5MB limit
+            toast({
+                variant: "destructive",
+                title: `File too large: ${file.name}`,
+                description: "Please upload files smaller than 5MB.",
+            });
+            return false;
+        }
+        return true;
+      });
+
+      setReferenceFiles(validFiles);
+      setReferenceDataUris([]); // Clear old URIs
+
+      const filePromises = validFiles.map(file => {
+        return new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = e => resolve(e.target?.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
         });
-        return;
-      }
-      setReferenceFile(file);
-      const reader = new FileReader();
-      reader.onload = (e) => setReferenceDataUri(e.target?.result as string);
-      reader.readAsDataURL(file);
+      });
+
+      Promise.all(filePromises).then(setReferenceDataUris).catch(err => {
+        console.error(err);
+        toast({ variant: 'destructive', title: 'Error reading files' });
+      });
     }
   };
 
-  const clearReferenceFile = () => {
-    setReferenceFile(null);
-    setReferenceDataUri(null);
-    // Also clear the file input visually
+  const clearReferenceFiles = () => {
+    setReferenceFiles([]);
+    setReferenceDataUris([]);
     const input = document.getElementById('reference-upload') as HTMLInputElement;
     if (input) input.value = '';
   };
@@ -343,105 +357,39 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
         return;
     }
     setIsChatEnhancing(true);
+    setAiFeedback(null);
     try {
-        let enhancedData: ResumeData;
-        if (referenceDataUri) {
-            enhancedData = await enhanceResumeWithReference({
+        let result: EnhanceResumeWithReferenceOutput;
+        if (referenceDataUris.length > 0) {
+            result = await enhanceResumeWithReference({
                 resume,
                 query: chatQuery,
-                referenceDataUri,
+                referenceDataUris: referenceDataUris,
             });
         } else {
-            enhancedData = await chatEnhanceResume({ resume, query: chatQuery });
+            // Using enhanceResumeWithReference even without files to get feedback structure
+            const simpleEnhanceResult = await chatEnhanceResume({ resume, query: chatQuery });
+            result = {
+                resume: simpleEnhanceResult,
+                feedback: {
+                    score: 0,
+                    justification: "No reference document was provided for scoring, but the resume was updated based on your general request.",
+                }
+            }
         }
         
-        const finalResume = assignIdsToResume(enhancedData);
+        const finalResume = assignIdsToResume(result.resume);
         setResume(finalResume);
+        setAiFeedback(result.feedback);
         setChatQuery("");
-        // Don't clear reference file, user might want to reuse it
-        toast({ title: "AI Enhancement Complete!", description: "Your resume has been updated based on your request." });
+        
+        toast({ title: "AI Enhancement Complete!", description: "Your resume and feedback have been updated." });
     } catch (error) {
         console.error("Chat enhancement failed:", error);
         toast({ variant: "destructive", title: "Enhancement Failed", description: "The AI assistant could not process your request." });
     } finally {
         setIsChatEnhancing(false);
     }
-  };
-
-
-  const convertResumeToString = (res: ResumeDataWithIds): string => {
-    let resumeText = `Name: ${res.name}\nEmail: ${res.email}\nPhone: ${res.phone}\n\n`;
-    resumeText += `Summary:\n${res.summary}\n\n`;
-
-    if (res.experience?.length) {
-        resumeText += "Experience:\n";
-        res.experience.forEach(exp => {
-            resumeText += `- ${exp.title} at ${exp.company} (${exp.dates}, ${exp.location})\n`;
-            exp.responsibilities.forEach(r => {
-                resumeText += `  - ${r}\n`;
-            });
-        });
-        resumeText += "\n";
-    }
-
-    if (res.education?.length) {
-        resumeText += "Education:\n";
-        res.education.forEach(edu => {
-            resumeText += `- ${edu.degree} from ${edu.school} (${edu.dates}, ${edu.location})\n`;
-        });
-        resumeText += "\n";
-    }
-
-    if (res.projects?.length) {
-        resumeText += "Projects:\n";
-        res.projects.forEach(proj => {
-            resumeText += `- ${proj.name}: ${proj.description} (Tech: ${proj.technologies.join(', ')})\n`;
-        });
-        resumeText += "\n";
-    }
-
-    if (res.skills?.length) {
-        resumeText += `Skills: ${res.skills.join(', ')}\n\n`;
-    }
-    
-    if (res.achievements?.length) {
-        resumeText += `Achievements: ${res.achievements.join(', ')}\n\n`;
-    }
-    
-    if (res.customSections?.length) {
-        res.customSections.forEach(sec => {
-            resumeText += `${sec.title}:\n${sec.content}\n\n`;
-        });
-    }
-
-    return resumeText;
-  };
-  
-  const handleScoreResume = async () => {
-      if (!jobCriteria) {
-          toast({
-              variant: "destructive",
-              title: "Missing Job Description",
-              description: "Please provide a job description or criteria.",
-          });
-          return;
-      }
-      setIsScoring(true);
-      setAtsResult(null);
-      try {
-          const resumeText = convertResumeToString(resume);
-          const scoreResult = await atsScorecard({ resumeText, criteria: jobCriteria });
-          setAtsResult(scoreResult);
-      } catch (error) {
-          console.error("Scoring failed:", error);
-          toast({
-              variant: "destructive",
-              title: "Scoring Failed",
-              description: "There was an error scoring your resume.",
-          });
-      } finally {
-          setIsScoring(false);
-      }
   };
 
 
@@ -628,7 +576,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
     }
   };
 
-  const editorDisabled = isDownloading || isChatEnhancing || isScoring;
+  const editorDisabled = isDownloading || isChatEnhancing;
   
   const removeItem = (type: 'experience' | 'education' | 'websites' | 'projects' | 'customSections', id: string) => {
     handleUpdate(draft => {
@@ -975,7 +923,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                             <AccordionTrigger className="p-4 font-semibold">AI Assistant</AccordionTrigger>
                             <AccordionContent className="p-4 pt-0">
                                 <div className="space-y-4">
-                                     <p className="text-sm text-muted-foreground">Ask the AI to improve your resume. Attach a job description for tailored suggestions.</p>
+                                     <p className="text-sm text-muted-foreground">Ask the AI to improve your resume. Attach job descriptions or other files for tailored suggestions.</p>
                                     <Textarea
                                         placeholder="Your request... e.g., 'Tailor my summary for this job.'"
                                         value={chatQuery}
@@ -985,7 +933,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                                     />
                                     <div className="space-y-2">
                                         <label htmlFor="reference-upload" className="text-sm font-medium text-foreground">
-                                            Reference Document (Optional)
+                                            Reference Documents (Optional)
                                         </label>
                                         <div className="flex items-center gap-2">
                                             <Input
@@ -995,15 +943,19 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                                                 onChange={handleReferenceFileChange}
                                                 disabled={editorDisabled}
                                                 accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                                                multiple
                                             />
-                                            <Button variant="ghost" size="icon" onClick={clearReferenceFile} disabled={!referenceFile || editorDisabled} aria-label="Clear reference file">
+                                            <Button variant="ghost" size="icon" onClick={clearReferenceFiles} disabled={referenceFiles.length === 0 || editorDisabled} aria-label="Clear reference files">
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
                                         </div>
-                                        {referenceFile && (
-                                            <p className="text-xs text-muted-foreground">
-                                                Attached: {referenceFile.name}
-                                            </p>
+                                        {referenceFiles.length > 0 && (
+                                            <div className="text-xs text-muted-foreground space-y-1">
+                                                <p>Attached files:</p>
+                                                <ul className="list-disc pl-4">
+                                                    {referenceFiles.map(f => <li key={f.name}>{f.name}</li>)}
+                                                </ul>
+                                            </div>
                                         )}
                                     </div>
                                     <Button onClick={handleChatEnhance} disabled={editorDisabled || !chatQuery} className="w-full">
@@ -1014,35 +966,49 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                             </AccordionContent>
                         </AccordionItem>
                         <AccordionItem value="item-2">
-                            <AccordionTrigger className="p-4 font-semibold">ATS Scorecard</AccordionTrigger>
+                            <AccordionTrigger className="p-4 font-semibold">AI Analysis & Feedback</AccordionTrigger>
                             <AccordionContent className="p-4 pt-0">
-                                <div className="space-y-4">
-                                    <p className="text-sm text-muted-foreground">Paste a job description to see how well your resume matches.</p>
-                                    <Textarea
-                                        placeholder="Paste job description here..."
-                                        value={jobCriteria}
-                                        onChange={(e) => setJobCriteria(e.target.value)}
-                                        rows={8}
-                                        disabled={editorDisabled}
-                                    />
-                                    <Button onClick={handleScoreResume} disabled={editorDisabled || !jobCriteria} className="w-full">
-                                        {isScoring ? <Loader2 className="animate-spin" /> : <Award />}
-                                        Get ATS Score
-                                    </Button>
-                                    {isScoring && <div className="text-center"><Loader2 className="animate-spin text-primary"/></div>}
-                                    {atsResult && !isScoring && (
-                                         <Card>
-                                             <CardHeader className="items-center">
-                                                 <ScoreCircle score={atsResult.score} />
-                                                 <CardTitle>Score: {atsResult.score}/100</CardTitle>
-                                             </CardHeader>
-                                             <CardContent>
-                                                <h4 className="font-semibold mb-2">Justification:</h4>
-                                                <p className="text-sm whitespace-pre-wrap">{atsResult.justification}</p>
-                                             </CardContent>
-                                         </Card>
-                                    )}
-                                </div>
+                                {isChatEnhancing && (
+                                    <div className="flex flex-col items-center justify-center gap-4 p-8">
+                                        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                                        <p className="text-muted-foreground">AI is analyzing...</p>
+                                    </div>
+                                )}
+                                {!isChatEnhancing && !aiFeedback && (
+                                    <p className="text-sm text-muted-foreground text-center py-4">
+                                        Use the AI Assistant above to get feedback on your resume.
+                                    </p>
+                                )}
+                                {aiFeedback && !isChatEnhancing && (
+                                     <Card>
+                                         <CardHeader className="items-center">
+                                             <ScoreCircle score={aiFeedback.score} />
+                                             <CardTitle>Score: {aiFeedback.score}/100</CardTitle>
+                                         </CardHeader>
+                                         <CardContent className="text-sm space-y-4">
+                                            <div>
+                                                <h4 className="font-semibold mb-1">Justification:</h4>
+                                                <p className="text-muted-foreground whitespace-pre-wrap">{aiFeedback.justification}</p>
+                                            </div>
+                                            {aiFeedback.skillsToLearn && aiFeedback.skillsToLearn.length > 0 && (
+                                                <div>
+                                                    <h4 className="font-semibold mb-2">Suggested Skills to Learn:</h4>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {aiFeedback.skillsToLearn.map(skill => <Badge key={skill} variant="secondary">{skill}</Badge>)}
+                                                    </div>
+                                                </div>
+                                            )}
+                                             {aiFeedback.suggestedRoles && aiFeedback.suggestedRoles.length > 0 && (
+                                                <div>
+                                                    <h4 className="font-semibold mb-2">Other Suggested Roles:</h4>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {aiFeedback.suggestedRoles.map(role => <Badge key={role} variant="outline">{role}</Badge>)}
+                                                    </div>
+                                                </div>
+                                            )}
+                                         </CardContent>
+                                     </Card>
+                                )}
                             </AccordionContent>
                         </AccordionItem>
                     </Accordion>
