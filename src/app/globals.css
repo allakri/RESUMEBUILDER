@@ -5,25 +5,25 @@
 
 @layer base {
   :root {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 6.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 217.2 91.2% 59.8%;
+    --background: 175 26% 96%;
+    --foreground: 180 5% 15%;
+    --card: 175 20% 100%;
+    --card-foreground: 180 5% 15%;
+    --popover: 175 20% 100%;
+    --popover-foreground: 180 5% 15%;
+    --primary: 180 100% 25%;
+    --primary-foreground: 180 100% 98%;
+    --secondary: 176 15% 91%;
+    --secondary-foreground: 180 5% 25%;
+    --muted: 176 15% 91%;
+    --muted-foreground: 180 4% 40%;
+    --accent: 52 96% 84%;
+    --accent-foreground: 52 100% 15%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 176 15% 85%;
+    --input: 176 15% 85%;
+    --ring: 180 100% 25%;
     --radius: 0.5rem;
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
@@ -33,25 +33,25 @@
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 6.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 217.2 91.2% 59.8%;
+    --background: 180 4% 8%;
+    --foreground: 175 5% 80%;
+    --card: 180 4% 12%;
+    --card-foreground: 175 5% 80%;
+    --popover: 180 4% 8%;
+    --popover-foreground: 175 5% 80%;
+    --primary: 180 84% 45%;
+    --primary-foreground: 180 100% 98%;
+    --secondary: 180 4% 18%;
+    --secondary-foreground: 175 5% 80%;
+    --muted: 180 4% 18%;
+    --muted-foreground: 180 2% 55%;
+    --accent: 52 86% 74%;
+    --accent-foreground: 52 100% 10%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 180 4% 22%;
+    --input: 180 4% 22%;
+    --ring: 180 84% 45%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
@@ -77,191 +77,114 @@
   }
 
   /* Base styles for all templates */
-  .template-base .name { @apply font-bold; }
-  .template-base .contact-info { @apply text-xs; }
-  .template-base .section-title { @apply font-bold uppercase tracking-wider; }
+  .template-base {
+    --theme-color: hsl(var(--primary));
+    --font-family-headline: 'Poppins', sans-serif;
+    --font-family-body: 'PT Sans', sans-serif;
+    font-family: var(--font-family-body);
+  }
+  .template-base .name { font-family: var(--font-family-headline); @apply font-bold; }
+  .template-base .contact-info { @apply text-xs opacity-80; }
+  .template-base .section-title { font-family: var(--font-family-headline); @apply font-bold uppercase tracking-wider; }
   .template-base .entry { @apply mb-3; }
-  .template-base h3 { @apply text-base font-semibold; }
+  .template-base h3, .template-base .title { font-family: var(--font-family-headline); @apply text-base font-semibold; }
   .template-base .responsibilities { @apply list-disc pl-5 mt-1 text-sm space-y-1; }
   .template-base section { @apply mb-4; }
-  .template-base .dates, .template-base .location { @apply text-xs font-light; }
+  .template-base .dates, .template-base .location { @apply text-xs opacity-70; }
   .template-base .company, .template-base .school { @apply font-medium; }
-  .template-base .degree, .template-base .title { @apply font-bold; }
-  .template-base a { @apply text-blue-600; }
-  .dark .template-base a { @apply text-blue-400; }
+  .template-base .degree { @apply font-bold; }
+  .template-base a { color: var(--theme-color); @apply hover:underline; }
 
 
-  /* 1. Classic Resume Template Styles */
-  .template-classic {
-    @apply font-serif p-8;
-    --theme-color: #333;
-  }
-  .template-classic .name {
-    @apply text-4xl text-center font-normal tracking-widest uppercase border-b-2 pb-2 mb-2;
-    border-color: var(--theme-color);
-  }
-  .template-classic .contact-info {
-    @apply text-center text-sm mb-6;
-  }
-  .template-classic .section-title {
-    @apply text-sm font-normal tracking-widest uppercase text-center my-4;
-  }
-  .template-classic .section-title::after {
-    content: '';
-    @apply block w-10 h-px bg-gray-400 mx-auto mt-1;
-  }
-  .template-classic .title {
-    @apply font-bold text-base;
-  }
-  .template-classic .company, .template-classic .school {
-    @apply italic;
-  }
-
-
-  /* 2. Modern Resume Template Styles */
-  .template-modern {
-      @apply font-sans grid grid-cols-12 gap-x-8 p-8;
-  }
-  .template-modern .header {
-      @apply col-span-12 mb-4;
-  }
-  .template-modern .name {
-      @apply text-5xl font-extrabold text-primary;
-  }
-  .template-modern .contact-info {
-      @apply text-sm mt-1;
-  }
-  .template-modern .main-content {
-      @apply col-span-12 md:col-span-8;
-  }
-  .template-modern .sidebar {
-      @apply col-span-12 md:col-span-4;
-  }
-  .template-modern .section-title {
-      @apply text-primary font-bold text-sm uppercase tracking-wider pb-1 border-b-2 border-primary mb-3 mt-4;
-  }
-  .template-modern .sidebar .section-title {
-    @apply border-b-0;
-  }
-
-  /* 3. Professional Template */
+  /* 1. Professional Template (New design) */
   .template-professional {
-    @apply font-sans p-8;
+    @apply p-8 text-sm;
   }
-  .template-professional .header {
-    @apply text-center pb-4 mb-4 border-b;
-  }
-  .template-professional .name {
-    @apply text-4xl font-bold;
-  }
-  .template-professional .contact-info {
-    @apply text-sm text-gray-600 dark:text-gray-400;
-  }
-  .template-professional .section-title {
-    @apply text-lg font-semibold text-primary mb-2;
-  }
+  .template-professional .name { @apply text-4xl font-bold border-b-2 pb-2 mb-1; border-color: var(--theme-color); color: var(--theme-color); }
+  .template-professional .contact-info { @apply text-center text-xs mb-6; }
+  .template-professional .main-content { @apply border-t-2 pt-4; }
+  .template-professional .section-title { @apply text-sm font-bold uppercase tracking-wider mb-2; color: var(--theme-color); }
+  .template-professional section { @apply mb-4; }
+  .template-professional .entry { @apply mb-3; }
+  .template-professional .title { @apply font-bold; }
 
-  /* 4. Executive Template */
-  .template-executive {
-    @apply font-serif p-8 bg-gray-50 dark:bg-gray-800;
-  }
-  .template-executive .header { 
-    @apply flex justify-between items-center border-b-4 border-gray-700 dark:border-gray-300 pb-2 mb-6;
-  }
-  .template-executive .name { 
-    @apply text-4xl font-thin tracking-wider; 
-  }
-  .template-executive .contact-info { 
-    @apply text-right text-xs; 
-  }
-  .template-executive .section-title { 
-    @apply text-lg text-gray-700 dark:text-gray-300 mt-6 font-light tracking-wider; 
-  }
+  /* 2. Modern Template (New design) */
+  .template-modern { @apply grid grid-cols-12 gap-x-8 p-8; }
+  .template-modern .header { @apply col-span-12 mb-4 text-center; }
+  .template-modern .name { @apply text-5xl font-extrabold; color: var(--theme-color); }
+  .template-modern .contact-info { @apply text-sm mt-1; }
+  .template-modern .main-content { @apply col-span-12 md:col-span-8; }
+  .template-modern .sidebar { @apply col-span-12 md:col-span-4; }
+  .template-modern .section-title { @apply text-sm font-bold uppercase tracking-wider pb-1 border-b-2 mb-3 mt-4; border-color: var(--theme-color); color: var(--theme-color); }
+  .template-modern .sidebar .section-title { @apply border-b-0; }
+  .template-modern .sidebar section { @apply bg-secondary/30 p-4 rounded-lg; }
 
-  /* 5. Minimalist Template */
-  .template-minimalist {
-    @apply font-sans font-light p-8 leading-relaxed;
-  }
-  .template-minimalist .name { 
-    @apply text-3xl font-normal tracking-widest text-center; 
-  }
-  .template-minimalist .contact-info { 
-    @apply text-center text-xs mb-8; 
-  }
-  .template-minimalist .section-title { 
-    @apply font-normal tracking-widest text-sm mb-3 pt-3 border-t border-gray-200 dark:border-gray-700; 
-  }
-  .template-minimalist section:first-of-type .section-title {
-    @apply border-t-0 pt-0;
-  }
-  .template-minimalist .entry h3, .template-minimalist .entry .company { 
-    @apply font-normal; 
-  }
+  /* 3. Classic Template (New design) */
+  .template-classic { @apply p-8 leading-normal; }
+  .template-classic .name { @apply text-4xl text-center font-normal tracking-widest uppercase border-y-2 py-2 my-2; border-color: var(--theme-color); }
+  .template-classic .contact-info { @apply text-center text-sm mb-6; }
+  .template-classic .section-title { @apply text-sm font-normal tracking-widest uppercase text-center my-4; }
+  .template-classic .section-title::after { content: ''; @apply block w-10 h-px bg-gray-400 mx-auto mt-1; }
+  .template-classic .title { @apply font-bold text-base; }
+  .template-classic .company, .template-classic .school { @apply italic; }
 
-  /* 6. Creative Template */
-  .template-creative { @apply font-sans p-0; }
-  .template-creative .header { 
-    @apply p-8 bg-primary text-primary-foreground text-center;
-  }
-  .template-creative .name { 
-    @apply text-4xl font-bold;
-  }
-  .template-creative main {
-    @apply p-8;
-  }
-  .template-creative .section-title { 
-    @apply text-right text-primary font-light text-lg border-b border-primary pb-1; 
-  }
+  /* 4. Executive Template (New design) */
+  .template-executive { @apply p-8; background-color: var(--theme-color); @apply text-primary-foreground; }
+  .template-executive .preview-content-wrapper { @apply bg-card text-card-foreground p-8; }
+  .template-executive .header { @apply flex justify-between items-center border-b-4 border-current pb-2 mb-6; }
+  .template-executive .name { @apply text-4xl font-thin tracking-wider; }
+  .template-executive .contact-info { @apply text-right text-xs; }
+  .template-executive .section-title { @apply text-lg mt-6 font-light tracking-wider; }
+  .template-executive a { @apply text-accent-foreground; }
+
+  /* 5. Minimalist Template (New design) */
+  .template-minimalist { @apply font-light p-8 leading-relaxed; }
+  .template-minimalist .name { @apply text-3xl font-normal tracking-widest text-center; }
+  .template-minimalist .contact-info { @apply text-center text-xs mb-8; }
+  .template-minimalist .section-title { @apply font-normal tracking-widest text-sm mb-3 pt-3 border-t; border-color: var(--theme-color); }
+  .template-minimalist section:first-of-type .section-title { @apply border-t-0 pt-0; }
+  .template-minimalist .entry h3, .template-minimalist .entry .company { @apply font-normal; }
+
+  /* 6. Creative Template (New design) */
+  .template-creative { @apply p-0; }
+  .template-creative .header { @apply p-8 text-center; background-color: var(--theme-color); color: var(--theme-color-foreground, hsl(var(--primary-foreground))); }
+  .template-creative .name { @apply text-4xl font-bold; }
+  .template-creative main { @apply p-8; }
+  .template-creative .section-title { @apply text-right font-light text-lg border-b pb-1; color: var(--theme-color); border-color: var(--theme-color);}
   .template-creative section { @apply mt-6; }
 
-  /* 7. Academic Template */
-  .template-academic { @apply font-serif p-8; }
+  /* 7. Academic Template (New design) */
+  .template-academic { @apply p-8; }
   .template-academic .name { @apply text-3xl text-center; }
-  .template-academic .contact-info { 
-    @apply text-center text-sm border-y border-gray-300 dark:border-gray-600 my-3 py-2; 
-  }
-  .template-academic .section-title { 
-    @apply font-serif text-base font-semibold italic mt-5;
-  }
+  .template-academic .contact-info { @apply text-center text-sm border-y my-3 py-2; }
+  .template-academic .section-title { @apply text-base font-semibold italic mt-5; color: var(--theme-color); }
   .template-academic .entry { @apply mb-2; }
 
-  /* 8. Technical Template */
-  .template-technical { @apply font-mono text-sm p-8; }
-  .template-technical .name { @apply text-2xl bg-muted p-2; }
+  /* 8. Technical Template (New design) */
+  .template-technical { @apply text-sm p-8; font-family: 'Courier New', monospace, var(--font-family-body); }
+  .template-technical .name { @apply text-2xl p-2; background-color: var(--theme-color); color: var(--theme-color-foreground, hsl(var(--primary-foreground))); }
   .template-technical .contact-info { @apply my-2; }
-  .template-technical .section-title { @apply text-base text-primary; }
+  .template-technical .section-title { @apply text-base; color: var(--theme-color); }
   .template-technical .section-title::before { content: '>> '; }
-  .template-technical .skills p, .template-technical .projects .italic { @apply font-sans; }
+  .template-technical .skills p, .template-technical .projects .italic { font-family: var(--font-family-body); }
+  .template-technical a { @apply underline; }
 
-  /* 9. Elegant Template */
-  .template-elegant { 
-    font-family: 'Garamond', serif; 
-    @apply p-8;
-  }
-  .template-elegant .name { 
-    @apply text-5xl text-center tracking-wider font-light; 
-  }
-  .template-elegant .contact-info { 
-    @apply text-center text-xs tracking-widest uppercase my-2; 
-  }
-  .template-elegant .section-title { 
-    @apply text-center text-sm tracking-widest uppercase my-5; 
-  }
-  .template-elegant .section-title::after, .template-elegant .section-title::before { 
-    @apply block w-16 h-px bg-gray-400 mx-auto mt-1; content: ''; 
-  }
-   .template-elegant .section-title::before {
-    @apply mb-1 mt-0;
-   }
-  
-  /* 10. Compact Template */
-  .template-compact { @apply font-sans text-xs p-6; }
+  /* 9. Elegant Template (New design) */
+  .template-elegant { @apply p-8; }
+  .template-elegant .name { @apply text-5xl text-center tracking-wider font-light; }
+  .template-elegant .contact-info { @apply text-center text-xs tracking-widest uppercase my-2; }
+  .template-elegant .section-title { @apply text-center text-sm tracking-widest uppercase my-5; }
+  .template-elegant .section-title::after, .template-elegant .section-title::before { @apply block w-16 h-px mx-auto mt-1; content: ''; background-color: var(--theme-color); }
+  .template-elegant .section-title::before { @apply mb-1 mt-0; }
+
+  /* 10. Compact Template (New design) */
+  .template-compact { @apply text-xs p-6; }
   .template-compact .name { @apply text-2xl font-bold; }
   .template-compact .contact-info { @apply text-xs mb-2; }
   .template-compact section { @apply mb-2; }
   .template-compact .entry { @apply mb-1; }
-  .template-compact .section-title { 
-    @apply text-xs font-bold uppercase tracking-wider border-b border-gray-300 dark:border-gray-700 mb-1 pb-px; 
-  }
+  .template-compact .section-title { @apply text-xs font-bold uppercase tracking-wider border-b mb-1 pb-px; border-color: var(--theme-color); color: var(--theme-color); }
   .template-compact .responsibilities { @apply mt-0 text-xs; }
 }
+
+    

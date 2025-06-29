@@ -12,6 +12,7 @@ import {
   Lightbulb,
   Link as LinkIcon,
   Loader2,
+  Palette,
   Pencil,
   PlusCircle,
   PlusSquare,
@@ -83,6 +84,13 @@ const SECTIONS = [
   { id: 'customSections', title: 'Custom Sections', icon: PlusSquare },
 ];
 
+const FONT_PAIRS = {
+  "sans": { body: "'PT Sans', sans-serif", headline: "'Poppins', sans-serif" },
+  "serif": { body: "'Georgia', serif", headline: "'Garamond', serif" },
+  "modern": { body: "'Helvetica', sans-serif", headline: "'Futura', sans-serif" },
+  "mono": { body: "'Courier New', monospace", headline: "'Courier New', monospace" },
+}
+
 
 // Helper to ensure all list items have a client-side ID.
 const assignIdsToResume = (resume: ResumeData): ResumeDataWithIds => {
@@ -140,7 +148,10 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
     canRedo,
   } = useHistoryState<ResumeDataWithIds>(assignIdsToResume(initialResumeData));
 
-  const [template, setTemplate] = useState("modern");
+  const [template, setTemplate] = useState("professional");
+  const [themeColor, setThemeColor] = useState("#008080"); // Default to Teal
+  const [fontPair, setFontPair] = useState<keyof typeof FONT_PAIRS>("sans");
+
   const [isDownloading, setIsDownloading] = useState(false);
   const [isChatEnhancing, setIsChatEnhancing] = useState(false);
   const { toast } = useToast();
@@ -410,13 +421,11 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
       try {
           // Temporarily set the body background to white for the capture
           document.body.style.backgroundColor = 'white';
-
-          const canvas = await html2canvas(elementToCapture, {
+          const canvas = await html2canvas(elementToCapture.querySelector('.preview-content-wrapper') || elementToCapture, {
               scale: 3, // Higher scale for better resolution
               useCORS: true,
               backgroundColor: '#ffffff', // Ensure background is white for capture
           });
-          
           // Revert body background color
           document.body.style.backgroundColor = '';
 
@@ -428,30 +437,21 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
           });
           
           const pdfWidth = pdf.internal.pageSize.getWidth();
-          const pdfHeight = pdf.internal.pageSize.getHeight();
-          
-          const canvasWidth = canvas.width;
-          const canvasHeight = canvas.height;
-          
-          // Maintain aspect ratio
-          const imgRatio = canvasWidth / canvasHeight;
-          const pdfRatio = pdfWidth / pdfHeight;
-
-          let imgHeight = (canvasHeight * pdfWidth) / canvasWidth;
+          const imgHeight = (canvas.height * pdfWidth) / canvas.width;
           let heightLeft = imgHeight;
           let position = 0;
   
           pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-          heightLeft -= pdfHeight;
+          heightLeft -= pdf.internal.pageSize.getHeight();
   
           while (heightLeft > 0) {
-              position = position - pdfHeight;
+              position = position - pdf.internal.pageSize.getHeight();
               pdf.addPage();
               pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-              heightLeft -= pdfHeight;
+              heightLeft -= pdf.internal.pageSize.getHeight();
           }
           
-          pdf.save(`${resume.name.replace(/\s+/g, '_') || 'resume'}_preview.pdf`);
+          pdf.save(`${resume.name.replace(/\s+/g, '_') || 'resume'}_${template}.pdf`);
       } catch (error) {
           console.error("PDF Download failed:", error);
           toast({
@@ -1020,7 +1020,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
         {/* Preview Modal */}
         <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
             <DialogContent className="max-w-4xl h-[90vh]">
-                 <DialogHeader><DialogTitle>Resume Preview</DialogTitle></DialogHeader>
+                 <DialogHeader><DialogTitle>Resume Preview & Design</DialogTitle></DialogHeader>
                  <ScrollArea className="h-full w-full">
                     <div className="p-4 bg-secondary rounded-lg flex justify-center">
                         <ResumePreview
@@ -1029,28 +1029,51 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                             templateName={template}
                             isEditable={false}
                             className="w-full max-w-[8.5in] bg-white"
+                            style={{
+                                "--theme-color": themeColor,
+                                "--font-family-body": FONT_PAIRS[fontPair].body,
+                                "--font-family-headline": FONT_PAIRS[fontPair].headline,
+                            } as React.CSSProperties}
                         />
                     </div>
                  </ScrollArea>
                  <DialogFooter>
-                    <div className="w-full flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                             <label className="text-sm font-medium">Template:</label>
-                             <Select value={template} onValueChange={setTemplate}>
-                                 <SelectTrigger className="w-48"><SelectValue placeholder="Change template" /></SelectTrigger>
-                                 <SelectContent>
-                                     <SelectItem value="modern">Modern</SelectItem>
-                                     <SelectItem value="classic">Classic</SelectItem>
-                                     <SelectItem value="professional">Professional</SelectItem>
-                                     <SelectItem value="executive">Executive</SelectItem>
-                                     <SelectItem value="minimalist">Minimalist</SelectItem>
-                                     <SelectItem value="creative">Creative</SelectItem>
-                                     <SelectItem value="academic">Academic</SelectItem>
-                                     <SelectItem value="technical">Technical</SelectItem>
-                                     <SelectItem value="elegant">Elegant</SelectItem>
-                                     <SelectItem value="compact">Compact</SelectItem>
-                                 </SelectContent>
-                             </Select>
+                    <div className="w-full flex flex-col sm:flex-row justify-between items-center gap-4">
+                        <div className="flex items-center gap-4">
+                             <div className="flex items-center gap-2">
+                                 <label className="text-sm font-medium">Template:</label>
+                                 <Select value={template} onValueChange={setTemplate}>
+                                     <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+                                     <SelectContent>
+                                         <SelectItem value="professional">Professional</SelectItem>
+                                         <SelectItem value="modern">Modern</SelectItem>
+                                         <SelectItem value="classic">Classic</SelectItem>
+                                         <SelectItem value="executive">Executive</SelectItem>
+                                         <SelectItem value="minimalist">Minimalist</SelectItem>
+                                         <SelectItem value="creative">Creative</SelectItem>
+                                         <SelectItem value="academic">Academic</SelectItem>
+                                         <SelectItem value="technical">Technical</SelectItem>
+                                         <SelectItem value="elegant">Elegant</SelectItem>
+                                         <SelectItem value="compact">Compact</SelectItem>
+                                     </SelectContent>
+                                 </Select>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                 <label htmlFor="theme-color-picker" className="text-sm font-medium flex items-center gap-2"><Palette className="w-4 h-4"/> Color:</label>
+                                 <Input id="theme-color-picker" type="color" value={themeColor} onChange={(e) => setThemeColor(e.target.value)} className="w-14 p-1"/>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                 <label className="text-sm font-medium">Fonts:</label>
+                                 <Select value={fontPair} onValueChange={(v) => setFontPair(v as keyof typeof FONT_PAIRS)}>
+                                     <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+                                     <SelectContent>
+                                         <SelectItem value="sans">Modern Sans</SelectItem>
+                                         <SelectItem value="serif">Classic Serif</SelectItem>
+                                         <SelectItem value="modern">Futuristic</SelectItem>
+                                         <SelectItem value="mono">Technical</SelectItem>
+                                     </SelectContent>
+                                 </Select>
+                            </div>
                         </div>
                          <div className="flex items-center gap-2">
                             <DropdownMenu>
