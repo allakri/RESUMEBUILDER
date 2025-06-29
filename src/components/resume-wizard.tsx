@@ -6,9 +6,12 @@ import type { ResumeDataWithIds } from '@/ai/resume-schema';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card } from './ui/card';
-import { FileText, Search, CheckCircle2 } from 'lucide-react';
+import { FileText, Search, CheckCircle2, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
+import { cn } from '@/lib/utils';
+import { ResumePreview } from './resume-preview';
 
 interface ResumeWizardProps {
     initialResumeData: ResumeDataWithIds;
@@ -17,6 +20,18 @@ interface ResumeWizardProps {
 }
 
 type WizardStep = 'heading';
+
+const TEMPLATES = [
+    { id: 'professional', name: 'Professional', imageUrl: 'https://placehold.co/200x283.png', hint: 'resume document' },
+    { id: 'modern', name: 'Modern', imageUrl: 'https://placehold.co/200x283.png', hint: 'resume layout' },
+    { id: 'classic', name: 'Classic', imageUrl: 'https://placehold.co/200x283.png', hint: 'resume text' },
+    { id: 'executive', name: 'Executive', imageUrl: 'https://placehold.co/200x283.png', hint: 'resume corporate' },
+    { id: 'minimalist', name: 'Minimalist', imageUrl: 'https://placehold.co/200x283.png', hint: 'resume simple' },
+    { id: 'creative', name: 'Creative', imageUrl: 'https://placehold.co/200x283.png', hint: 'resume design' },
+];
+
+const THEME_COLORS = ['#333333', '#008080', '#1E40AF', '#86198F', '#F97316', '#DC2626'];
+
 
 export function ResumeWizard({ initialResumeData, onComplete, onBack }: ResumeWizardProps) {
     const [step, setStep] = useState<WizardStep>('heading');
@@ -28,17 +43,28 @@ export function ResumeWizard({ initialResumeData, onComplete, onBack }: ResumeWi
     const [country, setCountry] = useState('');
     const [pincode, setPincode] = useState('');
 
+    const [selectedTemplate, setSelectedTemplate] = useState('professional');
+    const [themeColor, setThemeColor] = useState('#333333');
+    const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+
+
     const handleNext = () => {
         const finalResume = {
             ...resume,
             name: `${firstName} ${surname}`.trim(),
             location: [city, country, pincode].filter(Boolean).join(', '),
         };
-        // This is where you would transition to the next step, e.g., setStep('summary')
-        // For now, we'll call onComplete as if this is the only step.
         onComplete(finalResume);
     }
     
+    const previewResumeData: ResumeDataWithIds = {
+        ...resume,
+        name: `${firstName} ${surname}`.trim() || "Your Name",
+        location: [city, country, pincode].filter(Boolean).join(', ') || "City, Country",
+        email: resume.email === 'your.email@example.com' ? "your.email@example.com" : resume.email,
+        phone: resume.phone === '123-456-7890' ? "123-456-7890" : resume.phone,
+    };
+
     const renderHeadingStep = () => {
         return (
             <div className='flex flex-col h-full'>
@@ -80,27 +106,32 @@ export function ResumeWizard({ initialResumeData, onComplete, onBack }: ResumeWi
                                 <div className="relative">
                                     <label className="text-xs font-semibold text-gray-500">PHONE</label>
                                     <Input value={resume.phone} onChange={(e) => setResume({...resume, phone: e.target.value})} className="pr-8" />
-                                    {resume.phone && <CheckCircle2 className="absolute right-2 top-7 h-5 w-5 text-green-500" />}
+                                    {resume.phone !== '123-456-7890' && resume.phone && <CheckCircle2 className="absolute right-2 top-7 h-5 w-5 text-green-500" />}
                                 </div>
                                 <div className="relative">
                                     <label className="text-xs font-semibold text-gray-500">EMAIL</label>
                                     <Input type="email" value={resume.email} onChange={(e) => setResume({...resume, email: e.target.value})} className="pr-8"/>
-                                    {resume.email && <CheckCircle2 className="absolute right-2 top-7 h-5 w-5 text-green-500" />}
+                                    {resume.email !== 'your.email@example.com' && resume.email && <CheckCircle2 className="absolute right-2 top-7 h-5 w-5 text-green-500" />}
                                 </div>
                             </div>
                         </div>
 
                         {/* Right side: Template Preview */}
-                        <div className="flex flex-col items-center justify-start">
-                            <Card className="overflow-hidden relative group w-[300px] shadow-lg">
-                               <Image src="https://placehold.co/400x565.png" alt="Resume Template Preview" width={300} height={424} data-ai-hint="resume document" />
-                                <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <Button variant="secondary" size="icon" className="rounded-full h-12 w-12">
-                                        <Search className="h-6 w-6" />
-                                    </Button>
+                        <div className="flex flex-col items-center justify-start mt-8 lg:mt-0">
+                            <Card className="overflow-hidden relative group w-full max-w-[350px] shadow-lg cursor-pointer" onClick={() => setIsTemplateModalOpen(true)}>
+                                <div className="aspect-[8.5/11] w-full scale-100 transform-origin-top bg-white">
+                                    <ResumePreview
+                                        resumeData={previewResumeData}
+                                        templateName={selectedTemplate}
+                                        className="w-full h-full"
+                                        style={{ "--theme-color": themeColor } as React.CSSProperties}
+                                    />
+                                </div>
+                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                    <Search className="h-10 w-10 text-white" />
                                 </div>
                             </Card>
-                             <Button variant="link" className="mt-4 text-primary">Change template</Button>
+                            <Button variant="link" className="mt-2 text-primary" onClick={() => setIsTemplateModalOpen(true)}>Change template</Button>
                         </div>
                     </div>
                 </div>
@@ -133,6 +164,56 @@ export function ResumeWizard({ initialResumeData, onComplete, onBack }: ResumeWi
             <main className="flex-1 p-10 overflow-y-auto">
                 {step === 'heading' && renderHeadingStep()}
             </main>
+            <Dialog open={isTemplateModalOpen} onOpenChange={setIsTemplateModalOpen}>
+                <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
+                    <DialogHeader>
+                        <DialogTitle>Change Template</DialogTitle>
+                         <button onClick={() => setIsTemplateModalOpen(false)} className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+                            <X className="h-4 w-4" />
+                            <span className="sr-only">Close</span>
+                        </button>
+                    </DialogHeader>
+                    <div className="flex-1 overflow-y-auto space-y-6 p-1 pr-4">
+                        <div>
+                            <h3 className="text-lg font-semibold mb-2">Theme Color</h3>
+                            <div className="flex flex-wrap gap-3">
+                                {THEME_COLORS.map(color => (
+                                    <button
+                                        key={color}
+                                        onClick={() => setThemeColor(color)}
+                                        className={cn("h-8 w-8 rounded-full border-2 transition-all", themeColor === color ? 'border-primary ring-2 ring-primary/50' : 'border-gray-300')}
+                                        style={{ backgroundColor: color }}
+                                    >
+                                      <span className="sr-only">Set theme color to {color}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-semibold mb-2">Templates</h3>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                {TEMPLATES.map(template => (
+                                    <div
+                                        key={template.id}
+                                        className={cn(
+                                            "border-2 rounded-lg overflow-hidden cursor-pointer transition-all",
+                                            selectedTemplate === template.id ? "border-primary ring-2 ring-primary/50" : "border-gray-200 hover:border-primary/50"
+                                        )}
+                                        onClick={() => setSelectedTemplate(template.id)}
+                                    >
+                                        <Image src={template.imageUrl} alt={template.name} width={200} height={283} className="w-full object-cover" data-ai-hint={template.hint} />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button size="lg" onClick={() => setIsTemplateModalOpen(false)}>Done</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
+
+    
