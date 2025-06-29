@@ -207,7 +207,7 @@ export function ResumeOptimizer({ onComplete, onProcessing, isProcessing, onBack
                     accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                     onChange={handleFileChange}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    multiple
+                    multiple={true}
                   />
                 </div>
                 
