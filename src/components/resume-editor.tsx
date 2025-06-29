@@ -22,7 +22,6 @@ import {
   Trash2,
   Undo,
   User,
-  View,
   Wrench,
 } from "lucide-react";
 import { saveAs } from "file-saver";
@@ -62,7 +61,6 @@ import { ResumePreview } from "./resume-preview";
 import { ScrollArea } from "./ui/scroll-area";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
 import { Skeleton } from "./ui/skeleton";
-import { cn } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
 import { Badge } from "./ui/badge";
 
@@ -162,7 +160,6 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
   const [aiFeedback, setAiFeedback] = useState<AIFeedbackData | null>(null);
 
   const [activeSection, setActiveSection] = useState<string>('contact');
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   const previewRef = useRef<HTMLDivElement>(null);
   const [chatQuery, setChatQuery] = useState("");
@@ -872,14 +869,22 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
   return (
      <div className="flex h-screen bg-muted/40 flex-col md:flex-row">
         {/* Left Sidebar */}
-        <aside className="w-full md:w-72 border-b md:border-r md:border-b-0 border-border bg-background flex flex-col">
-            <div className="p-4 border-b border-border">
-                <Button variant="outline" size="sm" onClick={onBack} className="w-full">
-                    <ChevronLeft className="mr-2" /> Back to Home
+        <aside className="w-full md:w-60 border-b md:border-r md:border-b-0 border-border bg-background flex flex-col">
+            <div className="p-4 border-b border-border flex items-center justify-between">
+                <Button variant="outline" size="sm" onClick={onBack}>
+                    <ChevronLeft /> Back
                 </Button>
+                <div className="flex items-center gap-1">
+                    <Button onClick={undo} disabled={!canUndo || editorDisabled} variant="ghost" size="icon" aria-label="Undo">
+                        <Undo />
+                    </Button>
+                    <Button onClick={redo} disabled={!canRedo || editorDisabled} variant="ghost" size="icon" aria-label="Redo">
+                        <Redo />
+                    </Button>
+                </div>
             </div>
             <ScrollArea className="flex-1">
-                <nav className="p-4 space-y-1">
+                <nav className="p-2 space-y-1">
                     {SECTIONS.map(section => (
                         <Button
                             key={section.id}
@@ -887,7 +892,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                             className="w-full justify-start"
                             onClick={() => setActiveSection(section.id)}
                         >
-                            <section.icon className="mr-2" />
+                            <section.icon />
                             {section.title}
                         </Button>
                     ))}
@@ -896,30 +901,88 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
         </aside>
         
         {/* Main Content */}
-        <main className="flex-1 flex flex-col overflow-hidden">
-            <header className="flex items-center justify-end p-2 border-b border-border bg-background shadow-sm h-16">
-                 <div className="flex items-center gap-2">
-                    <Button onClick={undo} disabled={!canUndo || editorDisabled} variant="outline" size="icon" aria-label="Undo">
-                        <Undo />
-                    </Button>
-                    <Button onClick={redo} disabled={!canRedo || editorDisabled} variant="outline" size="icon" aria-label="Redo">
-                        <Redo />
-                    </Button>
-                    <Button onClick={() => setIsPreviewOpen(true)} variant="outline" size="sm">
-                        <View className="mr-2" /> Preview
-                    </Button>
+        <main className="flex-1 grid grid-cols-1 lg:grid-cols-2 overflow-hidden">
+            {/* Editor Panel */}
+            <ScrollArea className="lg:col-span-1">
+                <div className="p-6">
+                    {renderSectionEditor(activeSection)}
                 </div>
-            </header>
-            <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 overflow-hidden">
-                <div className="lg:col-span-2 overflow-y-auto">
-                   <div className="p-6">
-                     {renderSectionEditor(activeSection)}
-                   </div>
-                </div>
-                {/* Right Tools Sidebar */}
-                <aside className="lg:col-span-1 border-l border-border bg-background overflow-y-auto">
-                   <Accordion type="single" collapsible defaultValue="item-1" className="w-full">
-                        <AccordionItem value="item-1">
+            </ScrollArea>
+
+            {/* Right Panel: Preview & Tools */}
+            <aside className="lg:col-span-1 bg-gray-100 dark:bg-black/20 flex flex-col overflow-hidden">
+                <ScrollArea className="flex-1">
+                    <div className="p-4 flex justify-center">
+                         <ResumePreview
+                            ref={previewRef}
+                            resumeData={resume}
+                            templateName={template}
+                            isEditable={false}
+                            className="w-full max-w-[8.5in] bg-white shadow-lg"
+                            style={{
+                                "--theme-color": themeColor,
+                                "--font-family-body": FONT_PAIRS[fontPair].body,
+                                "--font-family-headline": FONT_PAIRS[fontPair].headline,
+                            } as React.CSSProperties}
+                        />
+                    </div>
+                </ScrollArea>
+                <div className="flex-shrink-0 border-t border-border bg-background">
+                     <Accordion type="multiple" className="w-full" defaultValue={['design']}>
+                        <AccordionItem value="design">
+                            <AccordionTrigger className="p-4 font-semibold">Design & Download</AccordionTrigger>
+                            <AccordionContent className="p-4 pt-0">
+                                <div className="grid grid-cols-2 gap-4 mb-4">
+                                     <div className="space-y-2">
+                                         <label className="text-sm font-medium">Template</label>
+                                         <Select value={template} onValueChange={setTemplate}>
+                                             <SelectTrigger><SelectValue /></SelectTrigger>
+                                             <SelectContent>
+                                                 <SelectItem value="professional">Professional</SelectItem>
+                                                 <SelectItem value="modern">Modern</SelectItem>
+                                                 <SelectItem value="classic">Classic</SelectItem>
+                                                 <SelectItem value="executive">Executive</SelectItem>
+                                                 <SelectItem value="minimalist">Minimalist</SelectItem>
+                                                 <SelectItem value="creative">Creative</SelectItem>
+                                                 <SelectItem value="academic">Academic</SelectItem>
+                                                 <SelectItem value="technical">Technical</SelectItem>
+                                                 <SelectItem value="elegant">Elegant</SelectItem>
+                                                 <SelectItem value="compact">Compact</SelectItem>
+                                             </SelectContent>
+                                         </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">Fonts</label>
+                                        <Select value={fontPair} onValueChange={(v) => setFontPair(v as keyof typeof FONT_PAIRS)}>
+                                            <SelectTrigger><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="sans">Modern Sans</SelectItem>
+                                                <SelectItem value="serif">Classic Serif</SelectItem>
+                                                <SelectItem value="modern">Futuristic</SelectItem>
+                                                <SelectItem value="mono">Technical</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                     <div className="space-y-2 col-span-2">
+                                        <label htmlFor="theme-color-picker" className="text-sm font-medium flex items-center gap-2"><Palette /> Theme Color</label>
+                                        <Input id="theme-color-picker" type="color" value={themeColor} onChange={(e) => setThemeColor(e.target.value)} className="w-full h-10"/>
+                                    </div>
+                                </div>
+                                 <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button className="w-full" size="lg" disabled={isDownloading}>
+                                        {isDownloading ? <Loader2 className="animate-spin" /> : <Download />}
+                                        <span className="ml-2">Download Resume</span>
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent className="w-56">
+                                        <DropdownMenuItem onClick={handleDownloadPdf}>PDF (Visual Copy)</DropdownMenuItem>
+                                        <DropdownMenuItem onClick={handleDownloadDocx}>DOCX (Editable Text)</DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="ai-assistant">
                             <AccordionTrigger className="p-4 font-semibold">AI Assistant</AccordionTrigger>
                             <AccordionContent className="p-4 pt-0">
                                 <div className="space-y-4">
@@ -928,7 +991,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                                         placeholder="Your request... e.g., 'Tailor my summary for this job.'"
                                         value={chatQuery}
                                         onChange={(e) => setChatQuery(e.target.value)}
-                                        rows={4}
+                                        rows={3}
                                         disabled={editorDisabled}
                                     />
                                     <div className="space-y-2">
@@ -946,7 +1009,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                                                 multiple
                                             />
                                             <Button variant="ghost" size="icon" onClick={clearReferenceFiles} disabled={referenceFiles.length === 0 || editorDisabled} aria-label="Clear reference files">
-                                                <Trash2 className="h-4 w-4" />
+                                                <Trash2 />
                                             </Button>
                                         </div>
                                         {referenceFiles.length > 0 && (
@@ -965,7 +1028,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                                 </div>
                             </AccordionContent>
                         </AccordionItem>
-                        <AccordionItem value="item-2">
+                        <AccordionItem value="ai-feedback">
                             <AccordionTrigger className="p-4 font-semibold">AI Analysis & Feedback</AccordionTrigger>
                             <AccordionContent className="p-4 pt-0">
                                 {isChatEnhancing && (
@@ -1012,91 +1075,10 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                             </AccordionContent>
                         </AccordionItem>
                     </Accordion>
-                </aside>
-            </div>
+                </div>
+            </aside>
         </main>
        
-
-        {/* Preview Modal */}
-        <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-            <DialogContent className="max-w-4xl h-[90vh]">
-                 <DialogHeader><DialogTitle>Resume Preview & Design</DialogTitle></DialogHeader>
-                 <ScrollArea className="h-full w-full">
-                    <div className="p-4 bg-secondary rounded-lg flex justify-center">
-                        <ResumePreview
-                            ref={previewRef}
-                            resumeData={resume}
-                            templateName={template}
-                            isEditable={false}
-                            className="w-full max-w-[8.5in] bg-white"
-                            style={{
-                                "--theme-color": themeColor,
-                                "--font-family-body": FONT_PAIRS[fontPair].body,
-                                "--font-family-headline": FONT_PAIRS[fontPair].headline,
-                            } as React.CSSProperties}
-                        />
-                    </div>
-                 </ScrollArea>
-                 <DialogFooter>
-                    <div className="w-full flex flex-col sm:flex-row justify-between items-center gap-4">
-                        <div className="flex items-center gap-4">
-                             <div className="flex items-center gap-2">
-                                 <label className="text-sm font-medium">Template:</label>
-                                 <Select value={template} onValueChange={setTemplate}>
-                                     <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-                                     <SelectContent>
-                                         <SelectItem value="professional">Professional</SelectItem>
-                                         <SelectItem value="modern">Modern</SelectItem>
-                                         <SelectItem value="classic">Classic</SelectItem>
-                                         <SelectItem value="executive">Executive</SelectItem>
-                                         <SelectItem value="minimalist">Minimalist</SelectItem>
-                                         <SelectItem value="creative">Creative</SelectItem>
-                                         <SelectItem value="academic">Academic</SelectItem>
-                                         <SelectItem value="technical">Technical</SelectItem>
-                                         <SelectItem value="elegant">Elegant</SelectItem>
-                                         <SelectItem value="compact">Compact</SelectItem>
-                                     </SelectContent>
-                                 </Select>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                 <label htmlFor="theme-color-picker" className="text-sm font-medium flex items-center gap-2"><Palette className="w-4 h-4"/> Color:</label>
-                                 <Input id="theme-color-picker" type="color" value={themeColor} onChange={(e) => setThemeColor(e.target.value)} className="w-14 p-1"/>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                 <label className="text-sm font-medium">Fonts:</label>
-                                 <Select value={fontPair} onValueChange={(v) => setFontPair(v as keyof typeof FONT_PAIRS)}>
-                                     <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
-                                     <SelectContent>
-                                         <SelectItem value="sans">Modern Sans</SelectItem>
-                                         <SelectItem value="serif">Classic Serif</SelectItem>
-                                         <SelectItem value="modern">Futuristic</SelectItem>
-                                         <SelectItem value="mono">Technical</SelectItem>
-                                     </SelectContent>
-                                 </Select>
-                            </div>
-                        </div>
-                         <div className="flex items-center gap-2">
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="default" size="sm" disabled={isDownloading}>
-                                    {isDownloading ? <Loader2 className="animate-spin" /> : <Download />}
-                                    <span className="ml-2">Download</span>
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent>
-                                    <DropdownMenuItem onClick={handleDownloadPdf}>PDF (Visual Copy)</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={handleDownloadDocx}>DOCX (Editable Text)</DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                            <DialogClose asChild>
-                                <Button>Close</Button>
-                            </DialogClose>
-                        </div>
-                    </div>
-                 </DialogFooter>
-            </DialogContent>
-        </Dialog>
-
         {/* Item Edit Modal */}
         {renderEditDialog()}
     </div>
