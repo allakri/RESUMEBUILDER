@@ -7,6 +7,7 @@ export const ResumeSchema = z.object({
   name: z.string().describe('The full name of the person.'),
   email: z.string().describe('The email address.'),
   phone: z.string().describe('The phone number.'),
+  location: z.string().optional().describe('The city and country of residence.'),
   summary: z.string().describe('A professional summary.'),
   experience: z
     .array(

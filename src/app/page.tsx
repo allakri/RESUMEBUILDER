@@ -8,13 +8,15 @@ import { type ResumeDataWithIds } from "@/ai/resume-schema";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ResumeCameraCapture } from "@/components/resume-camera-capture";
+import { ResumeWizard } from "@/components/resume-wizard";
 
-type Step = "CHOICE" | "UPLOAD" | "CAMERA" | "EDIT";
+type Step = "CHOICE" | "UPLOAD" | "CAMERA" | "EDIT" | "WIZARD";
 
 const BLANK_RESUME: ResumeDataWithIds = {
   name: "Your Name",
   email: "your.email@example.com",
   phone: "123-456-7890",
+  location: "City, Country",
   summary: "A brief professional summary about you.",
   experience: [
     {
@@ -51,7 +53,7 @@ export default function Home() {
 
   const handleStartFromScratch = () => {
     setResumeData(BLANK_RESUME);
-    setStep("EDIT");
+    setStep("WIZARD");
   };
 
   const handleUpload = () => {
@@ -72,6 +74,19 @@ export default function Home() {
     setResumeData(null);
     setStep('CHOICE');
     setIsProcessing(false);
+  }
+
+  const handleWizardComplete = (data: ResumeDataWithIds) => {
+    setResumeData(data);
+    setStep("EDIT");
+  };
+
+  if (step === "WIZARD" && resumeData) {
+    return <ResumeWizard 
+      initialResumeData={resumeData} 
+      onComplete={handleWizardComplete} 
+      onBack={handleBackToChoice} 
+    />;
   }
 
   if (step === "EDIT" && resumeData) {
