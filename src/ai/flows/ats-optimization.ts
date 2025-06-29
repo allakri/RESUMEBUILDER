@@ -10,12 +10,13 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import mammoth from 'mammoth';
 
 const OptimizeResumeForAtsInputSchema = z.object({
   resumePdfDataUri: z
     .string()
     .describe(
-      'The resume in PDF format as a data URI that must include a MIME type and use Base64 encoding. Expected format: \'data:<mimetype>;base64,<encoded_data>\'.' // Corrected typo here
+      "The resume in a supported format (PDF, image, DOCX) as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
 });
 export type OptimizeResumeForAtsInput = z.infer<typeof OptimizeResumeForAtsInputSchema>;
@@ -23,7 +24,7 @@ export type OptimizeResumeForAtsInput = z.infer<typeof OptimizeResumeForAtsInput
 const OptimizeResumeForAtsOutputSchema = z.object({
   optimizedResumeText: z
     .string()
-    .describe('The optimized resume content in plain text format.'),
+    .describe('The optimized or extracted resume content in plain text format.'),
 });
 export type OptimizeResumeForAtsOutput = z.infer<typeof OptimizeResumeForAtsOutputSchema>;
 
@@ -55,7 +56,24 @@ const optimizeResumeForAtsFlow = ai.defineFlow(
     inputSchema: OptimizeResumeForAtsInputSchema,
     outputSchema: OptimizeResumeForAtsOutputSchema,
   },
-  async input => {
+  async (input) => {
+    const dataUri = input.resumePdfDataUri;
+    const mimeType = dataUri.substring(dataUri.indexOf(':') + 1, dataUri.indexOf(';'));
+
+    const docxMimeTypes = [
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/msword'
+    ];
+
+    if (docxMimeTypes.includes(mimeType)) {
+      // The model does not support DOCX, so we extract the text manually.
+      const base64Data = dataUri.substring(dataUri.indexOf(',') + 1);
+      const buffer = Buffer.from(base64Data, 'base64');
+      const result = await mammoth.extractRawText({ buffer });
+      return { optimizedResumeText: result.value };
+    }
+
+    // For supported types like PDF and images, use the multimodal prompt.
     const {output} = await prompt(input);
     return output!;
   }
