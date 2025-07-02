@@ -53,7 +53,7 @@ export default function Home() {
 
   const handleProcessingComplete = (data: ResumeDataWithIds) => {
     setResumeData(data);
-    setStep("EDIT");
+    setStep("WIZARD");
     setIsProcessing(false);
   };
   
