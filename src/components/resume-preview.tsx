@@ -6,7 +6,7 @@ import type { ResumeDataWithIds } from "@/ai/resume-schema";
 import { cn } from "@/lib/utils";
 import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "./ui/button";
-import type { EditableSection, RemovableSectionType, EditableSectionType } from "./resume-editor";
+import type { EditableSection, RemovableSectionType } from "./resume-editor";
 
 interface ResumePreviewProps extends React.HTMLAttributes<HTMLDivElement> {
   resumeData: ResumeDataWithIds;
@@ -38,7 +38,7 @@ export const ResumePreview = React.forwardRef<HTMLDivElement, ResumePreviewProps
   ({ resumeData: resume, templateName = 'modern', className, isEditable = false, onEdit = () => {}, onRemove = () => {}, ...props }, ref) => {
     if (!resume) return null;
     
-    const handleEdit = (type: EditableSectionType, id?: string) => {
+    const handleEdit = (type: EditableSection['type'], id?: string) => {
         if (isEditable) onEdit({ type, id });
     }
     
@@ -60,14 +60,14 @@ export const ResumePreview = React.forwardRef<HTMLDivElement, ResumePreviewProps
             <header className="header relative group">
                 <h1 className="name">{resume.name}</h1>
                 <p className="contact-info">
-                    {[resume.email, resume.phone].filter(Boolean).join(" | ")}
+                    {[resume.email, resume.phone, resume.location].filter(Boolean).join(" | ")}
                 </p>
                 {isEditable && <ActionButtons onEdit={() => handleEdit('contact')} />}
             </header>
 
             <main>
-                <div className={cn(templateName === 'modern' || templateName === 'creative' ? 'grid grid-cols-12 gap-x-8' : '')}>
-                    <div className={cn(templateName === 'modern' || templateName === 'creative' ? 'main-content col-span-12 md:col-span-8' : '')}>
+                <div className={cn(templateName === 'modern' ? 'grid grid-cols-12 gap-x-8' : '')}>
+                    <div className={cn(templateName === 'modern' ? 'main-content col-span-12 md:col-span-8' : '')}>
                         
                         {resume.websites && resume.websites.length > 0 && (
                             <section className="relative group/section mb-4 -mt-2">
@@ -83,8 +83,8 @@ export const ResumePreview = React.forwardRef<HTMLDivElement, ResumePreviewProps
                                             )}
                                         </div>
                                     ))}
-                                    {isEditable && <Button variant="link" size="sm" className="h-5" onClick={() => handleEdit('new_website')}>+ Add Link</Button>}
                                 </div>
+                                 {isEditable && <ActionButtons onEdit={() => handleEdit('new_website')} />}
                             </section>
                         )}
 
@@ -131,12 +131,11 @@ export const ResumePreview = React.forwardRef<HTMLDivElement, ResumePreviewProps
                                 {isEditable && <ActionButtons onEdit={() => handleEdit('projects', proj.id)} onRemove={() => handleRemove('projects', proj.id)} />}
                                 </div>
                             ))}
-                             {isEditable && <Button variant="link" size="sm" className="w-full mt-2" onClick={() => handleEdit('new_project')}>+ Add Project</Button>}
                             </section>
                         )}
                     </div>
 
-                    <div className={cn(templateName === 'modern' || templateName === 'creative' ? 'sidebar col-span-12 md:col-span-4' : '')}>
+                    <div className={cn(templateName === 'modern' ? 'sidebar col-span-12 md:col-span-4' : '')}>
                         {resume.education && resume.education.length > 0 && (
                             <section>
                                 <h2 className="section-title">Education</h2>
@@ -173,10 +172,9 @@ export const ResumePreview = React.forwardRef<HTMLDivElement, ResumePreviewProps
 
                         {resume.customSections && resume.customSections.length > 0 && (
                              <section>
-                                <h2 className="section-title">More Info</h2>
                                 {resume.customSections.map(sec => (
                                     <div key={sec.id} className="relative group entry">
-                                        <h3 className="font-bold">{sec.title}</h3>
+                                        <h2 className="section-title">{sec.title}</h2>
                                         <p className="text-sm whitespace-pre-wrap">{sec.content}</p>
                                         {isEditable && <ActionButtons onEdit={() => handleEdit('customSections', sec.id)} onRemove={() => handleRemove('customSections', sec.id)} />}
                                     </div>

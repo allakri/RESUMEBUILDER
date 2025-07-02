@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -18,26 +19,9 @@ const BLANK_RESUME: ResumeDataWithIds = {
   phone: "123-456-7890",
   location: "City, Country",
   summary: "A brief professional summary about you.",
-  experience: [
-    {
-      id: crypto.randomUUID(),
-      title: "Job Title",
-      company: "Company Name",
-      location: "City, State",
-      dates: "Month Year - Present",
-      responsibilities: ["Responsibility or achievement."],
-    },
-  ],
-  education: [
-    {
-      id: crypto.randomUUID(),
-      degree: "Degree or Certificate",
-      school: "University or Institution",
-      location: "City, State",
-      dates: "Month Year - Month Year",
-    },
-  ],
-  skills: ["Skill 1", "Skill 2", "Skill 3"],
+  experience: [],
+  education: [],
+  skills: [],
   websites: [],
   projects: [],
   achievements: [],
@@ -141,7 +125,7 @@ export default function Home() {
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground mb-4">
-              Start with a blank slate and build your resume step-by-step.
+              Start with a blank slate and build your resume step-by-step with our guided wizard.
             </p>
             <Button className="w-full" onClick={handleStartFromScratch}>
               Start From Scratch

@@ -47,7 +47,7 @@ type WizardStep = 'heading' | 'experience' | 'education' | 'skills' | 'summary' 
 
 const WIZARD_STEPS: {id: WizardStep, title: string}[] = [
     { id: 'heading', title: 'Heading' },
-    { id: 'experience', title: 'Professional Experience' },
+    { id: 'experience', title: 'Work Experience' },
     { id: 'education', title: 'Education' },
     { id: 'skills', title: 'Skills' },
     { id: 'summary', title: 'Summary' },
@@ -57,7 +57,7 @@ const WIZARD_STEPS: {id: WizardStep, title: string}[] = [
 export function ResumeWizard({ initialResumeData, onComplete, onBack }: ResumeWizardProps) {
     const [step, setStep] = useState<WizardStep>('heading');
     const [resume, setResume] = useState<ResumeDataWithIds>(initialResumeData);
-    const [themeColor, setThemeColor] = useState('#4169e1'); // Royal Blue
+    const [themeColor] = useState('#4169e1'); // Royal Blue
 
     const handleUpdate = (updater: (draft: ResumeDataWithIds) => void) => {
         const newResume = JSON.parse(JSON.stringify(resume));
@@ -187,20 +187,25 @@ export function ResumeWizard({ initialResumeData, onComplete, onBack }: ResumeWi
                         <span className='text-xl font-bold text-slate-200'>ResumeRevamp</span>
                     </div>
                     <nav className="flex flex-col space-y-2">
-                        {WIZARD_STEPS.map((s) => (
-                            <button
-                                key={s.id}
-                                onClick={() => setStep(s.id)}
-                                className={cn(
-                                    "text-left text-lg p-3 rounded-md transition-colors w-full",
-                                    step === s.id 
-                                        ? "bg-white/20 font-bold" 
-                                        : "hover:bg-white/10 text-slate-300"
-                                )}
-                            >
-                                {s.title}
-                            </button>
-                        ))}
+                        {WIZARD_STEPS.map((s, index) => {
+                            const currentStepIndex = WIZARD_STEPS.findIndex(step => step.id === step);
+                            return (
+                                <button
+                                    key={s.id}
+                                    onClick={() => setStep(s.id)}
+                                    disabled={index > currentStepIndex + 1 && s.id !== 'finalize'}
+                                    className={cn(
+                                        "text-left text-lg p-3 rounded-md transition-colors w-full",
+                                        step === s.id 
+                                            ? "bg-white/20 font-bold" 
+                                            : "hover:bg-white/10 text-slate-300",
+                                        index > currentStepIndex + 1 && s.id !== 'finalize' && "opacity-50 cursor-not-allowed"
+                                    )}
+                                >
+                                    {s.title}
+                                </button>
+                            )
+                        })}
                     </nav>
                 </div>
                 <div className="text-xs text-slate-400">

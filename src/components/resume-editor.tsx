@@ -57,6 +57,7 @@ import {
   DialogTitle,
   DialogFooter,
   DialogClose,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { ResumePreview } from "./resume-preview";
 import { ScrollArea } from "./ui/scroll-area";
@@ -69,25 +70,10 @@ interface ResumeEditorProps {
   onBack: () => void;
 }
 
-const SECTIONS = [
-  { id: 'contact', title: 'Contact Info', icon: User },
-  { id: 'summary', title: 'Summary', icon: FileText },
-  { id: 'experience', title: 'Experience', icon: Briefcase },
-  { id: 'education', title: 'Education', icon: GraduationCap },
-  { id: 'projects', title: 'Projects', icon: Lightbulb },
-  { id: 'skills', title: 'Skills', icon: Wrench },
-  { id: 'websites', title: 'Websites & Links', icon: LinkIcon },
-  { id: 'achievements', title: 'Achievements', icon: Award },
-  { id: 'hobbies', title: 'Hobbies', icon: Smile },
-  { id: 'customSections', title: 'Custom Sections', icon: PlusSquare },
-];
+export type EditableSectionType = 'contact' | 'summary' | 'experience' | 'education' | 'websites' | 'projects' | 'skills' | 'achievements' | 'hobbies' | 'customSections' | 'new_experience' | 'new_education' | 'new_website' | 'new_project' | 'new_customSection';
+export type RemovableSectionType = 'experience' | 'education' | 'websites' | 'projects' | 'customSections';
+export type EditableSection = { type: EditableSectionType, id?: string };
 
-const FONT_PAIRS = {
-  "sans": { body: "'PT Sans', sans-serif", headline: "'Poppins', sans-serif" },
-  "serif": { body: "'Georgia', serif", headline: "'Garamond', serif" },
-  "modern": { body: "'Helvetica', sans-serif", headline: "'Futura', sans-serif" },
-  "mono": { body: "'Courier New', monospace", headline: "'Courier New', monospace" },
-}
 
 // Helper to ensure all list items have a client-side ID.
 const assignIdsToResume = (resume: ResumeData): ResumeDataWithIds => {
@@ -116,9 +102,12 @@ const assignIdsToResume = (resume: ResumeData): ResumeDataWithIds => {
     } as ResumeDataWithIds;
 };
 
-export type EditableSectionType = 'contact' | 'summary' | 'experience' | 'education' | 'websites' | 'projects' | 'skills' | 'achievements' | 'hobbies' | 'customSections' | 'new_experience' | 'new_education' | 'new_website' | 'new_project' | 'new_customSection';
-export type RemovableSectionType = 'experience' | 'education' | 'websites' | 'projects' | 'customSections';
-export type EditableSection = { type: EditableSectionType, id?: string };
+const FONT_PAIRS = {
+  "sans": { body: "'PT Sans', sans-serif", headline: "'Poppins', sans-serif" },
+  "serif": { body: "'Georgia', serif", headline: "'Garamond', serif" },
+  "modern": { body: "'Helvetica', sans-serif", headline: "'Futura', sans-serif" },
+  "mono": { body: "'Courier New', monospace", headline: "'Courier New', monospace" },
+}
 
 
 export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
@@ -162,7 +151,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
 
     switch (section.type) {
       case 'contact':
-        dataToEdit = { name: resume.name, email: resume.email, phone: resume.phone };
+        dataToEdit = { name: resume.name, email: resume.email, phone: resume.phone, location: resume.location };
         break;
       case 'summary':
         dataToEdit = { summary: resume.summary };
@@ -207,12 +196,10 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
         dataToEdit = resume.achievements ?? [];
         break;
       default:
-        console.error("Unhandled section type in handleEdit:", section);
         return;
     }
 
     if (typeof dataToEdit === 'undefined') {
-        console.error("Data to edit is undefined for section:", section);
         toast({
             variant: "destructive",
             title: "Error",
@@ -235,6 +222,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
             draft.name = editFormData.name;
             draft.email = editFormData.email;
             draft.phone = editFormData.phone;
+            draft.location = editFormData.location;
             break;
         case 'summary':
             draft.summary = editFormData.summary;
@@ -519,6 +507,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                         <CustomInput label="Full Name" value={editFormData.name} onChange={(e) => setEditFormData({...editFormData, name: e.target.value})} />
                         <CustomInput label="Email Address" type="email" value={editFormData.email} onChange={(e) => setEditFormData({...editFormData, email: e.target.value})} />
                         <CustomInput label="Phone Number" value={editFormData.phone} onChange={(e) => setEditFormData({...editFormData, phone: e.target.value})} />
+                        <CustomInput label="Location (e.g. City, Country)" value={editFormData.location} onChange={(e) => setEditFormData({...editFormData, location: e.target.value})} />
                     </div>
                 );
                 break;
@@ -637,7 +626,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
   return (
      <div className="flex h-screen bg-muted/40 flex-col md:flex-row">
         {/* Left Sidebar */}
-        <aside className="w-full md:w-72 border-b md:border-r md:border-b-0 border-border bg-background flex flex-col">
+        <aside className="w-full md:w-80 border-b md:border-r md:border-b-0 border-border bg-background flex flex-col">
             <div className="p-4 border-b border-border flex items-center justify-between gap-2">
                 <Button variant="outline" size="sm" onClick={onBack}>
                     <ChevronLeft className="h-4 w-4 mr-2" /> Back
@@ -649,86 +638,88 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                 </div>
             </div>
             
-             <Accordion type="multiple" className="w-full flex-1 flex flex-col" defaultValue={['ai-assistant']}>
+             <Accordion type="multiple" className="w-full flex-1 flex flex-col" defaultValue={['ai-assistant', 'ai-feedback']}>
                 <ScrollArea className="flex-1">
-                    <div className="p-4">
-                        <h3 className="text-lg font-semibold mb-4">AI Assistant</h3>
-                        <div className="space-y-4">
-                            <p className="text-sm text-muted-foreground">Ask the AI to improve your resume. Attach job descriptions or other files for tailored suggestions.</p>
-                            <Textarea placeholder="e.g., 'Tailor my summary for this job.'" value={chatQuery} onChange={(e) => setChatQuery(e.target.value)} rows={3} disabled={editorDisabled} />
-                            
-                            <div className="space-y-2">
-                                <label htmlFor="reference-upload" className="text-sm font-medium text-foreground cursor-pointer hover:text-primary">
-                                    Attach References (Optional)
-                                </label>
-                                <Input id="reference-upload" type="file" className="sr-only" onChange={handleReferenceFileChange} disabled={editorDisabled} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" multiple />
-                                {referenceFiles.length > 0 && (
-                                    <div className="text-xs text-muted-foreground space-y-1">
-                                        <ul className="space-y-1">
-                                            {referenceFiles.map(f => (
-                                              <li key={f.name} className="flex items-center justify-between bg-muted p-1 rounded">
-                                                <span className="truncate pr-2">{f.name}</span>
-                                                <Button variant="ghost" size="icon" onClick={() => clearReferenceFile(f.name)} disabled={editorDisabled} aria-label="Clear reference file" className="h-5 w-5"><Trash2 className="h-3 w-3"/></Button>
-                                              </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                )}
+                    <AccordionItem value="ai-assistant">
+                        <AccordionTrigger className="p-4 font-semibold text-base">AI Assistant</AccordionTrigger>
+                        <AccordionContent className="p-4 pt-0">
+                            <div className="space-y-4">
+                                <p className="text-sm text-muted-foreground">Ask the AI to improve your resume. Attach job descriptions or other files for tailored suggestions.</p>
+                                <Textarea placeholder="e.g., 'Tailor my summary for this job.'" value={chatQuery} onChange={(e) => setChatQuery(e.target.value)} rows={3} disabled={editorDisabled} />
+                                
+                                <div className="space-y-2">
+                                    <label htmlFor="reference-upload" className="text-sm font-medium text-foreground cursor-pointer hover:text-primary">
+                                        Attach References (Optional)
+                                    </label>
+                                    <Input id="reference-upload" type="file" className="sr-only" onChange={handleReferenceFileChange} disabled={editorDisabled} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" multiple />
+                                    {referenceFiles.length > 0 && (
+                                        <div className="text-xs text-muted-foreground space-y-1">
+                                            <ul className="space-y-1">
+                                                {referenceFiles.map(f => (
+                                                  <li key={f.name} className="flex items-center justify-between bg-muted p-1 rounded">
+                                                    <span className="truncate pr-2">{f.name}</span>
+                                                    <Button variant="ghost" size="icon" onClick={() => clearReferenceFile(f.name)} disabled={editorDisabled} aria-label="Clear reference file" className="h-5 w-5"><Trash2 className="h-3 w-3"/></Button>
+                                                  </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+                                </div>
+                                <Button onClick={handleChatEnhance} disabled={editorDisabled || !chatQuery} className="w-full">
+                                    {isChatEnhancing ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                                    Enhance with AI
+                                </Button>
                             </div>
-                            <Button onClick={handleChatEnhance} disabled={editorDisabled || !chatQuery} className="w-full">
-                                {isChatEnhancing ? <Loader2 className="animate-spin" /> : <Sparkles />}
-                                Enhance with AI
-                            </Button>
-                        </div>
-                    </div>
-                </ScrollArea>
+                        </AccordionContent>
+                    </AccordionItem>
 
-                <AccordionItem value="ai-feedback" className="border-t">
-                    <AccordionTrigger className="p-4 font-semibold text-base">AI Analysis</AccordionTrigger>
-                    <AccordionContent className="p-4 pt-0">
-                        {isChatEnhancing && (
-                            <div className="flex flex-col items-center justify-center gap-4 p-8">
-                                <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                                <p className="text-muted-foreground">AI is analyzing...</p>
-                            </div>
-                        )}
-                        {!isChatEnhancing && !aiFeedback && (
-                            <p className="text-sm text-muted-foreground text-center py-4">
-                                Use the AI Assistant above to get feedback.
-                            </p>
-                        )}
-                        {aiFeedback && !isChatEnhancing && (
-                             <Card>
-                                 <CardHeader className="items-center">
-                                     <ScoreCircle score={aiFeedback.score} />
-                                     <CardTitle>ATS Score: {aiFeedback.score}/100</CardTitle>
-                                 </CardHeader>
-                                 <CardContent className="text-sm space-y-4">
-                                    <div>
-                                        <h4 className="font-semibold mb-1">Justification:</h4>
-                                        <p className="text-muted-foreground whitespace-pre-wrap">{aiFeedback.justification}</p>
-                                    </div>
-                                    {aiFeedback.skillsToLearn && aiFeedback.skillsToLearn.length > 0 && (
+                    <AccordionItem value="ai-feedback" className="border-b-0">
+                        <AccordionTrigger className="p-4 font-semibold text-base">AI Analysis</AccordionTrigger>
+                        <AccordionContent className="p-4 pt-0">
+                            {isChatEnhancing && (
+                                <div className="flex flex-col items-center justify-center gap-4 p-8">
+                                    <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                                    <p className="text-muted-foreground">AI is analyzing...</p>
+                                </div>
+                            )}
+                            {!isChatEnhancing && !aiFeedback && (
+                                <p className="text-sm text-muted-foreground text-center py-4">
+                                    Use the AI Assistant above to get feedback.
+                                </p>
+                            )}
+                            {aiFeedback && !isChatEnhancing && (
+                                 <Card>
+                                     <CardHeader className="items-center">
+                                         <ScoreCircle score={aiFeedback.score} />
+                                         <CardTitle>ATS Score: {aiFeedback.score}/100</CardTitle>
+                                     </CardHeader>
+                                     <CardContent className="text-sm space-y-4">
                                         <div>
-                                            <h4 className="font-semibold mb-2">Suggested Skills to Learn:</h4>
-                                            <div className="flex flex-wrap gap-2">
-                                                {aiFeedback.skillsToLearn.map(skill => <Badge key={skill} variant="secondary">{skill}</Badge>)}
-                                            </div>
+                                            <h4 className="font-semibold mb-1">Justification:</h4>
+                                            <p className="text-muted-foreground whitespace-pre-wrap">{aiFeedback.justification}</p>
                                         </div>
-                                    )}
-                                     {aiFeedback.suggestedRoles && aiFeedback.suggestedRoles.length > 0 && (
-                                        <div>
-                                            <h4 className="font-semibold mb-2">Other Suggested Roles:</h4>
-                                            <div className="flex flex-wrap gap-2">
-                                                {aiFeedback.suggestedRoles.map(role => <Badge key={role} variant="outline">{role}</Badge>)}
+                                        {aiFeedback.skillsToLearn && aiFeedback.skillsToLearn.length > 0 && (
+                                            <div>
+                                                <h4 className="font-semibold mb-2">Suggested Skills to Learn:</h4>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {aiFeedback.skillsToLearn.map(skill => <Badge key={skill} variant="secondary">{skill}</Badge>)}
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
-                                 </CardContent>
-                             </Card>
-                        )}
-                    </AccordionContent>
-                </AccordionItem>
+                                        )}
+                                         {aiFeedback.suggestedRoles && aiFeedback.suggestedRoles.length > 0 && (
+                                            <div>
+                                                <h4 className="font-semibold mb-2">Other Suggested Roles:</h4>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {aiFeedback.suggestedRoles.map(role => <Badge key={role} variant="outline">{role}</Badge>)}
+                                                </div>
+                                            </div>
+                                        )}
+                                     </CardContent>
+                                 </Card>
+                            )}
+                        </AccordionContent>
+                    </AccordionItem>
+                </ScrollArea>
             </Accordion>
         </aside>
         
@@ -770,13 +761,13 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                     <Input id="theme-color-picker" type="color" value={themeColor} onChange={(e) => setThemeColor(e.target.value)} className="w-24 h-9 p-1"/>
                 </div>
                  <div className="flex items-end h-full">
-                    <Button onClick={() => handleEdit({type: 'new_experience'})}>Add Experience</Button>
+                    <Button variant="outline" onClick={() => handleEdit({type: 'new_experience'})}>Add Experience</Button>
                  </div>
                  <div className="flex items-end h-full">
-                    <Button onClick={() => handleEdit({type: 'new_education'})}>Add Education</Button>
+                    <Button variant="outline" onClick={() => handleEdit({type: 'new_education'})}>Add Education</Button>
                  </div>
                  <div className="flex items-end h-full">
-                    <Button onClick={() => handleEdit({type: 'new_customSection'})}>Add Section</Button>
+                    <Button variant="outline" onClick={() => handleEdit({type: 'new_customSection'})}>Add Section</Button>
                  </div>
             </div>
             <ScrollArea className="flex-1">
@@ -807,10 +798,11 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
             <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>Resume Preview</DialogTitle>
-                    <CardDescription>This is how your resume will look. Use the download buttons below.</CardDescription>
+                    <DialogDescription>This is how your resume will look. Use the download buttons below.</DialogDescription>
                 </DialogHeader>
                 <div className="flex-1 overflow-auto bg-muted/40 p-4">
                     <ResumePreview
+                        ref={previewRef}
                         resumeData={resume}
                         templateName={template}
                         className="w-full max-w-[8.5in] mx-auto bg-white shadow-lg"
