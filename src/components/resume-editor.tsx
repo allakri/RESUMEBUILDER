@@ -701,7 +701,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                              <Card>
                                  <CardHeader className="items-center">
                                      <ScoreCircle score={aiFeedback.score} />
-                                     <CardTitle>Score: {aiFeedback.score}/100</CardTitle>
+                                     <CardTitle>ATS Score: {aiFeedback.score}/100</CardTitle>
                                  </CardHeader>
                                  <CardContent className="text-sm space-y-4">
                                     <div>
