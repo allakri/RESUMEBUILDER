@@ -18,7 +18,7 @@ const CustomInput = React.forwardRef<HTMLInputElement, {label?:string} & React.C
     return (
         <div className="grid w-full items-center gap-1.5">
             <label htmlFor={id} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">{label}</label>
-            <Input id={id} type={type} className={cn("bg-white text-black", className)} ref={ref} {...props} />
+            <Input id={id} type={type} className={cn("", className)} ref={ref} {...props} />
         </div>
     );
 });
@@ -26,11 +26,11 @@ CustomInput.displayName = "Input";
 
 const CustomTextarea = React.forwardRef<HTMLTextAreaElement, {label?: string} & React.ComponentProps<typeof Textarea>>(({ className, label, ...props }, ref) => {
     const id = React.useId();
-    if (!label) return <Textarea className={cn("bg-white text-black", className)} ref={ref} {...props} />
+    if (!label) return <Textarea className={cn("", className)} ref={ref} {...props} />
     return (
       <div className="grid w-full gap-1.5">
         <label htmlFor={id} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">{label}</label>
-        <Textarea id={id} className={cn("bg-white text-black", className)} ref={ref} {...props} />
+        <Textarea id={id} className={cn("", className)} ref={ref} {...props} />
       </div>
     )
 });
@@ -102,7 +102,7 @@ export function ResumeWizard({ initialResumeData, onComplete, onBack }: ResumeWi
                         <h2 className="text-2xl font-bold">Tell us about your most recent job.</h2>
                         <p className="text-muted-foreground">You can add more positions later in the main editor.</p>
                         {resume.experience.map((exp, expIndex) => (
-                             <Card key={exp.id} className="p-4 space-y-4 bg-slate-50">
+                             <Card key={exp.id} className="p-4 space-y-4 bg-secondary">
                                  <CustomInput label="Job Title" value={exp.title} onChange={(e) => handleUpdate(draft => { draft.experience[expIndex].title = e.target.value })} />
                                  <CustomInput label="Company" value={exp.company} onChange={(e) => handleUpdate(draft => { draft.experience[expIndex].company = e.target.value })} />
                                  <CustomInput label="Location" value={exp.location} onChange={(e) => handleUpdate(draft => { draft.experience[expIndex].location = e.target.value })} />
@@ -110,7 +110,7 @@ export function ResumeWizard({ initialResumeData, onComplete, onBack }: ResumeWi
                                  <label className="block text-sm font-medium">Responsibilities</label>
                                  {exp.responsibilities.map((resp, respIndex) => (
                                      <div key={respIndex} className="flex items-center gap-2">
-                                         <Textarea value={resp} onChange={(e) => handleUpdate(draft => { draft.experience[expIndex].responsibilities[respIndex] = e.target.value })} rows={2} className="bg-white text-black" />
+                                         <Textarea value={resp} onChange={(e) => handleUpdate(draft => { draft.experience[expIndex].responsibilities[respIndex] = e.target.value })} rows={2} />
                                          <Button variant="ghost" size="icon" onClick={() => handleUpdate(draft => { draft.experience[expIndex].responsibilities.splice(respIndex, 1) })}><Trash2 className="h-4 w-4" /></Button>
                                      </div>
                                  ))}
@@ -130,7 +130,7 @@ export function ResumeWizard({ initialResumeData, onComplete, onBack }: ResumeWi
                         <h2 className="text-2xl font-bold">What is your education?</h2>
                         <p className="text-muted-foreground">Include your most recent qualification. You can add more later.</p>
                          {resume.education.map((edu, eduIndex) => (
-                             <Card key={edu.id} className="p-4 space-y-4 bg-slate-50">
+                             <Card key={edu.id} className="p-4 space-y-4 bg-secondary">
                                  <CustomInput label="Degree / Certificate" value={edu.degree} onChange={(e) => handleUpdate(draft => { draft.education[eduIndex].degree = e.target.value })} />
                                  <CustomInput label="School / Institution" value={edu.school} onChange={(e) => handleUpdate(draft => { draft.education[eduIndex].school = e.target.value })} />
                                  <CustomInput label="Location" value={edu.location} onChange={(e) => handleUpdate(draft => { draft.education[eduIndex].location = e.target.value })} />
@@ -169,7 +169,7 @@ export function ResumeWizard({ initialResumeData, onComplete, onBack }: ResumeWi
                              <ResumePreview 
                                 resumeData={resume} 
                                 templateName="modern"
-                                className="shadow-lg"
+                                className="shadow-lg !bg-card !text-card-foreground"
                                 style={{ "--theme-color": themeColor } as React.CSSProperties}
                              />
                          </div>
@@ -179,26 +179,26 @@ export function ResumeWizard({ initialResumeData, onComplete, onBack }: ResumeWi
     }
 
     return (
-        <div className="flex h-screen bg-slate-100 text-slate-900">
-            <aside className="w-64 bg-[#1e3a8a] text-white p-6 flex-col justify-between hidden md:flex">
+        <div className="flex h-screen bg-background text-foreground">
+            <aside className="w-64 bg-sidebar text-sidebar-foreground p-6 flex-col justify-between hidden md:flex">
                 <div>
                     <div className="mb-10 flex items-center gap-2">
-                        <FileText className="h-8 w-8 text-slate-300" />
-                        <span className='text-xl font-bold text-slate-200'>ResumeRevamp</span>
+                        <FileText className="h-8 w-8 text-sidebar-foreground" />
+                        <span className='text-xl font-bold text-sidebar-foreground'>ResumeRevamp</span>
                     </div>
                     <nav className="flex flex-col space-y-2">
                         {WIZARD_STEPS.map((s, index) => {
-                            const currentStepIndex = WIZARD_STEPS.findIndex(step => step.id === step);
+                            const currentStepIndex = WIZARD_STEPS.findIndex(current => current.id === step);
                             return (
                                 <button
                                     key={s.id}
                                     onClick={() => setStep(s.id)}
-                                    disabled={index > currentStepIndex + 1 && s.id !== 'finalize'}
+                                    disabled={index > currentStepIndex && s.id !== 'finalize' && resume.experience.length === 0}
                                     className={cn(
                                         "text-left text-lg p-3 rounded-md transition-colors w-full",
                                         step === s.id 
-                                            ? "bg-white/20 font-bold" 
-                                            : "hover:bg-white/10 text-slate-300",
+                                            ? "bg-sidebar-accent/20 font-bold" 
+                                            : "hover:bg-sidebar-accent/10 text-sidebar-foreground/80",
                                         index > currentStepIndex + 1 && s.id !== 'finalize' && "opacity-50 cursor-not-allowed"
                                     )}
                                 >
@@ -208,7 +208,7 @@ export function ResumeWizard({ initialResumeData, onComplete, onBack }: ResumeWi
                         })}
                     </nav>
                 </div>
-                <div className="text-xs text-slate-400">
+                <div className="text-xs text-sidebar-foreground/70">
                      <p>&copy; {new Date().getFullYear()} ResumeRevamp.</p>
                 </div>
             </aside>
