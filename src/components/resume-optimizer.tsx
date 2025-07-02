@@ -131,10 +131,7 @@ export function ResumeOptimizer({ onComplete, onProcessing, isProcessing, onBack
       });
 
       const resumeWithIds: ResumeDataWithIds = {
-        name: structuredResult.name,
-        email: structuredResult.email,
-        phone: structuredResult.phone,
-        summary: structuredResult.summary,
+        ...structuredResult,
         experience: structuredResult.experience.map((exp) => ({ ...exp, id: crypto.randomUUID() })),
         education: structuredResult.education.map((edu) => ({ ...edu, id: crypto.randomUUID() })),
         skills: structuredResult.skills || [],

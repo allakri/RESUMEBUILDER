@@ -93,10 +93,7 @@ export function ResumeCameraCapture({ onComplete, onProcessing, isProcessing, on
 
       // Step 3: Assign IDs for the editor
       const resumeWithIds: ResumeDataWithIds = {
-        name: structuredResult.name,
-        email: structuredResult.email,
-        phone: structuredResult.phone,
-        summary: structuredResult.summary,
+        ...structuredResult,
         experience: structuredResult.experience.map((exp) => ({ ...exp, id: crypto.randomUUID() })),
         education: structuredResult.education.map((edu) => ({ ...edu, id: crypto.randomUUID() })),
         skills: structuredResult.skills || [],
@@ -175,7 +172,7 @@ export function ResumeCameraCapture({ onComplete, onProcessing, isProcessing, on
                     <Alert variant="destructive">
                         <AlertTitle>Camera Access Required</AlertTitle>
                         <AlertDescription>
-                            Please allow camera access in your browser to use this feature. You may need to refresh the page after granting permission.
+                            Please enable camera access in your browser to use this feature. You may need to refresh the page after granting permission.
                         </AlertDescription>
                     </Alert>
                 )}

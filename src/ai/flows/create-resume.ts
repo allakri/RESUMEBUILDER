@@ -29,7 +29,7 @@ const prompt = ai.definePrompt({
   output: {schema: ResumeSchema},
   prompt: `You are an expert resume formatter.
   Analyze the following resume text and structure it into a professional resume format.
-  Extract the name, profession, contact information, summary, work experience, education, skills, projects, websites/profiles, achievements, and hobbies.
+  Extract the first name, last name, profession, contact information (email, phone, location, pin code), summary, work experience, education, skills, projects, websites/profiles, achievements, and hobbies.
   If you find sections that do not fit into the standard categories (like 'Certifications', 'Publications', or 'Languages'), parse them into the 'customSections' array. Each item should have a 'title' and its corresponding 'content'.
   Do not create 'id' fields for any items.
 

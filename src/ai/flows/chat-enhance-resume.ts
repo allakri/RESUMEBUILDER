@@ -36,6 +36,7 @@ const prompt = ai.definePrompt({
   output: {schema: ResumeSchema},
   prompt: `You are an expert resume writer and career coach. A user has provided their current resume data (in JSON format) and a request to modify it.
 Your task is to update the resume JSON based on the user's request and return the full, updated resume data in the exact same JSON format.
+The user's full name is {{resume.firstName}} {{resume.lastName}}.
 
 - Only modify the parts of the resume relevant to the user's query.
 - Do not invent new facts or numbers unless explicitly asked.

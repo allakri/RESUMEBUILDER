@@ -24,6 +24,7 @@ const prompt = ai.definePrompt({
   input: {schema: PromptInputSchema},
   output: {schema: ResumeSchema},
   prompt: `You are an expert resume writer and career coach. 
+  The user's full name is {{resume.firstName}} {{resume.lastName}}.
   Your task is to enhance the provided resume data. 
   - Rewrite the summary to be more professional and impactful. 
   - For each experience entry, review the responsibilities and rewrite them to use strong action verbs and quantify achievements where possible.

@@ -61,7 +61,8 @@ const prompt = ai.definePrompt({
   input: {schema: PromptInputSchema},
   output: {schema: EnhanceResumeWithReferenceOutputSchema},
   prompt: `You are an expert resume writer and career coach.
-  
+  The user's full name is {{resume.firstName}} {{resume.lastName}}.
+
 Your tasks are to:
 1. Update the resume JSON based on the user's request, using the provided reference documents to guide your improvements. For example, if the reference documents include a job description, you should tailor the resume's summary and experience sections to better match the keywords, skills, and requirements mentioned.
 - Only modify the parts of the resume relevant to the user's query and the reference documents.

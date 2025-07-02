@@ -151,7 +151,17 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
 
     switch (section.type) {
       case 'contact':
-        dataToEdit = { name: resume.name, profession: resume.profession, email: resume.email, phone: resume.phone, location: resume.location };
+        dataToEdit = { 
+            firstName: resume.firstName, 
+            lastName: resume.lastName,
+            profession: resume.profession, 
+            email: resume.email, 
+            phone: resume.phone, 
+            location: resume.location,
+            pinCode: resume.pinCode,
+            linkedIn: resume.linkedIn,
+            drivingLicense: resume.drivingLicense,
+        };
         break;
       case 'summary':
         dataToEdit = { summary: resume.summary };
@@ -219,11 +229,15 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
       if (!editingSection) return;
       switch (editingSection.type) {
         case 'contact':
-            draft.name = editFormData.name;
+            draft.firstName = editFormData.firstName;
+            draft.lastName = editFormData.lastName;
             draft.profession = editFormData.profession;
             draft.email = editFormData.email;
             draft.phone = editFormData.phone;
             draft.location = editFormData.location;
+            draft.pinCode = editFormData.pinCode;
+            draft.linkedIn = editFormData.linkedIn;
+            draft.drivingLicense = editFormData.drivingLicense;
             break;
         case 'summary':
             draft.summary = editFormData.summary;
@@ -411,7 +425,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
               pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
               heightLeft -= pdfHeight;
           }
-          pdf.save(`${resume.name.replace(/\s+/g, '_') || 'resume'}_${template}.pdf`);
+          pdf.save(`${[resume.firstName, resume.lastName].join('_') || 'resume'}_${template}.pdf`);
       } catch (error) {
           console.error("PDF Download failed:", error);
           toast({ variant: "destructive", title: "Download Failed", description: "Error generating PDF." });
@@ -423,10 +437,11 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
 
   const handleDownloadDocx = async () => {
     setIsDownloading(true);
+    const fullName = [resume.firstName, resume.lastName].filter(Boolean).join(" ");
     try {
         const createTextRuns = (text: string) => text.split('\n').flatMap((line, i) => i > 0 ? [new TextRun({ break: 1 }), new TextRun(line)] : [new TextRun(line)]);
         const children: Paragraph[] = [
-            new Paragraph({ text: resume.name, heading: HeadingLevel.TITLE, alignment: 'center' }),
+            new Paragraph({ text: fullName, heading: HeadingLevel.TITLE, alignment: 'center' }),
             ...(resume.profession ? [new Paragraph({ text: resume.profession, alignment: 'center' })] : []),
             new Paragraph({ text: [resume.email, resume.phone].filter(Boolean).join(" | "), alignment: 'center' }),
             ...(resume.websites && resume.websites.length > 0 ? [new Paragraph({ text: resume.websites.map(w => w.url).join(" | "), alignment: 'center' })] : []),
@@ -467,7 +482,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
 
         const doc = new Document({ styles: { paragraph: { run: { font: "PT Sans", size: 22 } }, heading1: { run: { font: "Poppins", size: 28, bold: true }, paragraph: { spacing: { after: 120 } } }, title: { run: { font: "Poppins", size: 44, bold: true }, paragraph: { spacing: { after: 120 } } }, }, sections: [{ children }] });
         const blob = await Packer.toBlob(doc);
-        saveAs(blob, `${resume.name.replace(/\s+/g, "_") || "resume"}_resume.docx`);
+        saveAs(blob, `${fullName.replace(/\s+/g, "_") || "resume"}_resume.docx`);
     } catch (error) {
       console.error(error);
       toast({ variant: "destructive", title: "Download Failed", description: "Error generating DOCX." });
@@ -506,11 +521,20 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                 title = "Edit Contact Information"
                 content = (
                     <div className="space-y-4">
-                        <CustomInput label="Full Name" value={editFormData.name} onChange={(e) => setEditFormData({...editFormData, name: e.target.value})} />
+                        <div className="grid grid-cols-2 gap-4">
+                            <CustomInput label="First Name" value={editFormData.firstName} onChange={(e) => setEditFormData({...editFormData, firstName: e.target.value})} />
+                            <CustomInput label="Last Name" value={editFormData.lastName} onChange={(e) => setEditFormData({...editFormData, lastName: e.target.value})} />
+                        </div>
                         <CustomInput label="Profession" value={editFormData.profession ?? ''} onChange={(e) => setEditFormData({...editFormData, profession: e.target.value})} placeholder="e.g. Software Engineer" />
-                        <CustomInput label="Email Address" type="email" value={editFormData.email} onChange={(e) => setEditFormData({...editFormData, email: e.target.value})} />
-                        <CustomInput label="Phone Number" value={editFormData.phone} onChange={(e) => setEditFormData({...editFormData, phone: e.target.value})} />
-                        <CustomInput label="Location (e.g. City, Country)" value={editFormData.location} onChange={(e) => setEditFormData({...editFormData, location: e.target.value})} />
+                        <div className="grid grid-cols-2 gap-4">
+                            <CustomInput label="Email Address" type="email" value={editFormData.email} onChange={(e) => setEditFormData({...editFormData, email: e.target.value})} />
+                            <CustomInput label="Phone Number" value={editFormData.phone} onChange={(e) => setEditFormData({...editFormData, phone: e.target.value})} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <CustomInput label="Location (e.g. City, Country)" value={editFormData.location} onChange={(e) => setEditFormData({...editFormData, location: e.target.value})} />
+                            <CustomInput label="PIN Code" value={editFormData.pinCode ?? ''} onChange={(e) => setEditFormData({...editFormData, pinCode: e.target.value})} />
+                        </div>
+                         <CustomInput label="LinkedIn Profile URL" value={editFormData.linkedIn ?? ''} onChange={(e) => setEditFormData({...editFormData, linkedIn: e.target.value})} />
                     </div>
                 );
                 break;

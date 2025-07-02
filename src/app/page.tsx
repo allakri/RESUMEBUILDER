@@ -14,11 +14,13 @@ import { ResumeWizard } from "@/components/resume-wizard";
 type Step = "CHOICE" | "UPLOAD" | "CAMERA" | "EDIT" | "WIZARD";
 
 const BLANK_RESUME: ResumeDataWithIds = {
-  name: "Your Name",
+  firstName: "Your",
+  lastName: "Name",
   profession: "Your Profession",
   email: "your.email@example.com",
   phone: "123-456-7890",
   location: "City, Country",
+  pinCode: "12345",
   summary: "A brief professional summary about you.",
   experience: [],
   education: [],

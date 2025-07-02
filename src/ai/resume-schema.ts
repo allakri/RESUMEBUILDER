@@ -4,11 +4,14 @@
 import {z} from 'genkit';
 
 export const ResumeSchema = z.object({
-  name: z.string().describe('The full name of the person.'),
+  firstName: z.string().describe('The first name of the person.'),
+  lastName: z.string().describe('The last name of the person.'),
+  profilePictureUrl: z.string().optional().describe('URL to a profile picture.'),
   profession: z.string().optional().describe('The professional title or role (e.g., "Software Engineer").'),
   email: z.string().describe('The email address.'),
   phone: z.string().describe('The phone number.'),
   location: z.string().optional().describe('The city and country of residence.'),
+  pinCode: z.string().optional().describe('The postal or ZIP code.'),
   summary: z.string().describe('A professional summary.'),
   experience: z
     .array(
@@ -88,6 +91,8 @@ export const ResumeSchema = z.object({
     .describe(
       "A list of custom user-defined sections, like 'Certifications' or 'Languages'."
     ),
+  linkedIn: z.string().optional().describe('URL to a LinkedIn profile.'),
+  drivingLicense: z.string().optional().describe('Driving license details.'),
 });
 
 export type ResumeData = z.infer<typeof ResumeSchema>;
