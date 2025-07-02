@@ -24,6 +24,8 @@ import {
   User,
   Wrench,
   Eye,
+  PanelLeftClose,
+  PanelRightClose,
 } from "lucide-react";
 import { saveAs } from "file-saver";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
@@ -64,6 +66,7 @@ import { ScrollArea } from "./ui/scroll-area";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
 import { Badge } from "./ui/badge";
+import { cn } from "@/lib/utils";
 
 interface ResumeEditorProps {
   initialResumeData: ResumeDataWithIds;
@@ -127,6 +130,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isChatEnhancing, setIsChatEnhancing] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const { toast } = useToast();
 
   const [editingSection, setEditingSection] = useState<EditableSection | null>(null);
@@ -658,101 +662,115 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
   return (
      <div className="flex h-screen bg-muted/40 flex-col md:flex-row">
         {/* Left Sidebar */}
-        <aside className="w-full md:w-80 border-b md:border-r md:border-b-0 border-border bg-background flex flex-col">
+        <aside className={cn(
+          "border-b md:border-r md:border-b-0 border-border bg-background flex flex-col transition-all duration-300",
+          isSidebarOpen ? "w-full md:w-80" : "w-full md:w-[72px]"
+        )}>
             <div className="p-4 border-b border-border flex items-center justify-between gap-2">
-                <Button variant="outline" size="sm" onClick={onBack}>
-                    <ChevronLeft className="h-4 w-4 mr-2" /> Back
+                <Button variant="outline" size={isSidebarOpen ? "sm" : "icon"} onClick={onBack}>
+                    <ChevronLeft className="h-4 w-4" />
+                    <span className={cn("ml-2", !isSidebarOpen && "hidden")}>Back</span>
                 </Button>
+
                 <div className="flex items-center gap-1">
-                    <Button onClick={undo} disabled={!canUndo || editorDisabled} variant="ghost" size="icon" aria-label="Undo"><Undo className="h-4 w-4" /></Button>
-                    <Button onClick={redo} disabled={!canRedo || editorDisabled} variant="ghost" size="icon" aria-label="Redo"><Redo className="h-4 w-4" /></Button>
-                    <Button onClick={() => setIsPreviewOpen(true)} variant="ghost" size="icon" aria-label="Preview"><Eye className="h-4 w-4"/></Button>
+                    <div className={cn("flex items-center gap-1", !isSidebarOpen && "hidden")}>
+                        <Button onClick={undo} disabled={!canUndo || editorDisabled} variant="ghost" size="icon" aria-label="Undo"><Undo className="h-4 w-4" /></Button>
+                        <Button onClick={redo} disabled={!canRedo || editorDisabled} variant="ghost" size="icon" aria-label="Redo"><Redo className="h-4 w-4" /></Button>
+                        <Button onClick={() => setIsPreviewOpen(true)} variant="ghost" size="icon" aria-label="Preview"><Eye className="h-4 w-4"/></Button>
+                    </div>
+
+                    <Button onClick={() => setIsSidebarOpen(!isSidebarOpen)} variant="ghost" size="icon" className="hidden md:flex">
+                        {isSidebarOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelRightClose className="h-5 w-5" />}
+                        <span className="sr-only">Toggle AI Panel</span>
+                    </Button>
                 </div>
             </div>
             
-             <Accordion type="multiple" className="w-full flex-1 flex flex-col" defaultValue={['ai-assistant', 'ai-feedback']}>
-                <ScrollArea className="flex-1">
-                    <AccordionItem value="ai-assistant">
-                        <AccordionTrigger className="p-4 font-semibold text-base">AI Assistant</AccordionTrigger>
-                        <AccordionContent className="p-4 pt-0">
-                            <div className="space-y-4">
-                                <p className="text-sm text-muted-foreground">Ask the AI to improve your resume. Attach job descriptions or other files for tailored suggestions.</p>
-                                <Textarea placeholder="e.g., 'Tailor my summary for this job.'" value={chatQuery} onChange={(e) => setChatQuery(e.target.value)} rows={3} disabled={editorDisabled} />
-                                
-                                <div className="space-y-2">
-                                    <label htmlFor="reference-upload" className="text-sm font-medium text-foreground cursor-pointer hover:text-primary">
-                                        Attach References (Optional)
-                                    </label>
-                                    <Input id="reference-upload" type="file" className="sr-only" onChange={handleReferenceFileChange} disabled={editorDisabled} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" multiple />
-                                    {referenceFiles.length > 0 && (
-                                        <div className="text-xs text-muted-foreground space-y-1">
-                                            <ul className="space-y-1">
-                                                {referenceFiles.map(f => (
-                                                  <li key={f.name} className="flex items-center justify-between bg-muted p-1 rounded">
-                                                    <span className="truncate pr-2">{f.name}</span>
-                                                    <Button variant="ghost" size="icon" onClick={() => clearReferenceFile(f.name)} disabled={editorDisabled} aria-label="Clear reference file" className="h-5 w-5"><Trash2 className="h-3 w-3"/></Button>
-                                                  </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    )}
+            <div className={cn("flex-1 overflow-hidden", !isSidebarOpen && "hidden")}>
+                <Accordion type="multiple" className="w-full flex-1 flex flex-col" defaultValue={['ai-assistant', 'ai-feedback']}>
+                    <ScrollArea className="flex-1">
+                        <AccordionItem value="ai-assistant">
+                            <AccordionTrigger className="p-4 font-semibold text-base">AI Assistant</AccordionTrigger>
+                            <AccordionContent className="p-4 pt-0">
+                                <div className="space-y-4">
+                                    <p className="text-sm text-muted-foreground">Ask the AI to improve your resume. Attach job descriptions or other files for tailored suggestions.</p>
+                                    <Textarea placeholder="e.g., 'Tailor my summary for this job.'" value={chatQuery} onChange={(e) => setChatQuery(e.target.value)} rows={3} disabled={editorDisabled} />
+                                    
+                                    <div className="space-y-2">
+                                        <label htmlFor="reference-upload" className="text-sm font-medium text-foreground cursor-pointer hover:text-primary">
+                                            Attach References (Optional)
+                                        </label>
+                                        <Input id="reference-upload" type="file" className="sr-only" onChange={handleReferenceFileChange} disabled={editorDisabled} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" multiple />
+                                        {referenceFiles.length > 0 && (
+                                            <div className="text-xs text-muted-foreground space-y-1">
+                                                <ul className="space-y-1">
+                                                    {referenceFiles.map(f => (
+                                                      <li key={f.name} className="flex items-center justify-between bg-muted p-1 rounded">
+                                                        <span className="truncate pr-2">{f.name}</span>
+                                                        <Button variant="ghost" size="icon" onClick={() => clearReferenceFile(f.name)} disabled={editorDisabled} aria-label="Clear reference file" className="h-5 w-5"><Trash2 className="h-3 w-3"/></Button>
+                                                      </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <Button onClick={handleChatEnhance} disabled={editorDisabled || !chatQuery} className="w-full">
+                                        {isChatEnhancing ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                                        Enhance with AI
+                                    </Button>
                                 </div>
-                                <Button onClick={handleChatEnhance} disabled={editorDisabled || !chatQuery} className="w-full">
-                                    {isChatEnhancing ? <Loader2 className="animate-spin" /> : <Sparkles />}
-                                    Enhance with AI
-                                </Button>
-                            </div>
-                        </AccordionContent>
-                    </AccordionItem>
+                            </AccordionContent>
+                        </AccordionItem>
 
-                    <AccordionItem value="ai-feedback" className="border-b-0">
-                        <AccordionTrigger className="p-4 font-semibold text-base">AI Analysis</AccordionTrigger>
-                        <AccordionContent className="p-4 pt-0">
-                            {isChatEnhancing && (
-                                <div className="flex flex-col items-center justify-center gap-4 p-8">
-                                    <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                                    <p className="text-muted-foreground">AI is analyzing...</p>
-                                </div>
-                            )}
-                            {!isChatEnhancing && !aiFeedback && (
-                                <p className="text-sm text-muted-foreground text-center py-4">
-                                    Use the AI Assistant above to get feedback.
-                                </p>
-                            )}
-                            {aiFeedback && !isChatEnhancing && (
-                                 <Card>
-                                     <CardHeader className="items-center">
-                                         <ScoreCircle score={aiFeedback.score} />
-                                         <CardTitle>ATS Score: {aiFeedback.score}/100</CardTitle>
-                                     </CardHeader>
-                                     <CardContent className="text-sm space-y-4">
-                                        <div>
-                                            <h4 className="font-semibold mb-1">Justification:</h4>
-                                            <p className="text-muted-foreground whitespace-pre-wrap">{aiFeedback.justification}</p>
-                                        </div>
-                                        {aiFeedback.skillsToLearn && aiFeedback.skillsToLearn.length > 0 && (
+                        <AccordionItem value="ai-feedback" className="border-b-0">
+                            <AccordionTrigger className="p-4 font-semibold text-base">AI Analysis</AccordionTrigger>
+                            <AccordionContent className="p-4 pt-0">
+                                {isChatEnhancing && (
+                                    <div className="flex flex-col items-center justify-center gap-4 p-8">
+                                        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                                        <p className="text-muted-foreground">AI is analyzing...</p>
+                                    </div>
+                                )}
+                                {!isChatEnhancing && !aiFeedback && (
+                                    <p className="text-sm text-muted-foreground text-center py-4">
+                                        Use the AI Assistant above to get feedback.
+                                    </p>
+                                )}
+                                {aiFeedback && !isChatEnhancing && (
+                                     <Card>
+                                         <CardHeader className="items-center">
+                                             <ScoreCircle score={aiFeedback.score} />
+                                             <CardTitle>ATS Score: {aiFeedback.score}/100</CardTitle>
+                                         </CardHeader>
+                                         <CardContent className="text-sm space-y-4">
                                             <div>
-                                                <h4 className="font-semibold mb-2">Suggested Skills to Learn:</h4>
-                                                <div className="flex flex-wrap gap-2">
-                                                    {aiFeedback.skillsToLearn.map(skill => <Badge key={skill} variant="secondary">{skill}</Badge>)}
-                                                </div>
+                                                <h4 className="font-semibold mb-1">Justification:</h4>
+                                                <p className="text-muted-foreground whitespace-pre-wrap">{aiFeedback.justification}</p>
                                             </div>
-                                        )}
-                                         {aiFeedback.suggestedRoles && aiFeedback.suggestedRoles.length > 0 && (
-                                            <div>
-                                                <h4 className="font-semibold mb-2">Other Suggested Roles:</h4>
-                                                <div className="flex flex-wrap gap-2">
-                                                    {aiFeedback.suggestedRoles.map(role => <Badge key={role} variant="outline">{role}</Badge>)}
+                                            {aiFeedback.skillsToLearn && aiFeedback.skillsToLearn.length > 0 && (
+                                                <div>
+                                                    <h4 className="font-semibold mb-2">Suggested Skills to Learn:</h4>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {aiFeedback.skillsToLearn.map(skill => <Badge key={skill} variant="secondary">{skill}</Badge>)}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        )}
-                                     </CardContent>
-                                 </Card>
-                            )}
-                        </AccordionContent>
-                    </AccordionItem>
-                </ScrollArea>
-            </Accordion>
+                                            )}
+                                             {aiFeedback.suggestedRoles && aiFeedback.suggestedRoles.length > 0 && (
+                                                <div>
+                                                    <h4 className="font-semibold mb-2">Other Suggested Roles:</h4>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {aiFeedback.suggestedRoles.map(role => <Badge key={role} variant="outline">{role}</Badge>)}
+                                                    </div>
+                                                </div>
+                                            )}
+                                         </CardContent>
+                                     </Card>
+                                )}
+                            </AccordionContent>
+                        </AccordionItem>
+                    </ScrollArea>
+                </Accordion>
+            </div>
         </aside>
         
         {/* Main Content: Interactive Preview */}
