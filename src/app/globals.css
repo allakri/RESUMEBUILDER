@@ -106,7 +106,7 @@
 
 
   /* 1. Professional Template (New design) */
-  .template-professional {
+  .template-professional .preview-content-wrapper {
     @apply p-8 text-sm;
   }
   .template-professional .name { @apply text-4xl font-bold border-b-2 pb-2 mb-1; border-color: var(--theme-color); color: var(--theme-color); }
@@ -118,7 +118,8 @@
   .template-professional .title { @apply font-bold; }
 
   /* 2. Modern Template (New design) */
-  .template-modern { @apply grid grid-cols-12 gap-x-8 p-8; }
+  .template-modern .preview-content-wrapper { @apply p-8; }
+  .template-modern main { @apply grid grid-cols-12 gap-x-8; }
   .template-modern .header { @apply col-span-12 mb-4 text-center; }
   .template-modern .name { @apply text-5xl font-extrabold; color: var(--theme-color); }
   .template-modern .contact-info { @apply text-sm mt-1; }
@@ -129,7 +130,7 @@
   .template-modern .sidebar section { @apply bg-secondary/30 p-4 rounded-lg; }
 
   /* 3. Classic Template (New design) */
-  .template-classic { @apply p-8 leading-normal; }
+  .template-classic .preview-content-wrapper { @apply p-8 leading-normal; }
   .template-classic .name { @apply text-4xl text-center font-normal tracking-widest uppercase border-y-2 py-2 my-2; border-color: var(--theme-color); }
   .template-classic .contact-info { @apply text-center text-sm mb-6; }
   .template-classic .section-title { @apply text-sm font-normal tracking-widest uppercase text-center my-4; }
@@ -138,7 +139,7 @@
   .template-classic .company, .template-classic .school { @apply italic; }
 
   /* 4. Executive Template (New design) */
-  .template-executive { @apply p-8; background-color: var(--theme-color); @apply text-primary-foreground; }
+  .template-executive { background-color: var(--theme-color); @apply text-primary-foreground p-8; }
   .template-executive .preview-content-wrapper { @apply bg-card text-card-foreground p-8; }
   .template-executive .header { @apply flex justify-between items-center border-b-4 border-current pb-2 mb-6; }
   .template-executive .name { @apply text-4xl font-thin tracking-wider; }
@@ -147,7 +148,7 @@
   .template-executive a { @apply text-accent-foreground; }
 
   /* 5. Minimalist Template (New design) */
-  .template-minimalist { @apply font-light p-8 leading-relaxed; }
+  .template-minimalist .preview-content-wrapper { @apply font-light p-8 leading-relaxed; }
   .template-minimalist .name { @apply text-3xl font-normal tracking-widest text-center; }
   .template-minimalist .contact-info { @apply text-center text-xs mb-8; }
   .template-minimalist .section-title { @apply font-normal tracking-widest text-sm mb-3 pt-3 border-t; border-color: var(--theme-color); }
@@ -155,22 +156,21 @@
   .template-minimalist .entry h3, .template-minimalist .entry .company { @apply font-normal; }
 
   /* 6. Creative Template (New design) */
-  .template-creative { @apply p-0; }
+  .template-creative .preview-content-wrapper { @apply p-0; }
   .template-creative .header { @apply p-8 text-center; background-color: var(--theme-color); color: var(--theme-color-foreground, hsl(var(--primary-foreground))); }
-  .template-creative .name { @apply text-4xl font-bold; }
   .template-creative main { @apply p-8; }
   .template-creative .section-title { @apply text-right font-light text-lg border-b pb-1; color: var(--theme-color); border-color: var(--theme-color);}
   .template-creative section { @apply mt-6; }
 
   /* 7. Academic Template (New design) */
-  .template-academic { @apply p-8; }
+  .template-academic .preview-content-wrapper { @apply p-8; }
   .template-academic .name { @apply text-3xl text-center; }
   .template-academic .contact-info { @apply text-center text-sm border-y my-3 py-2; }
   .template-academic .section-title { @apply text-base font-semibold italic mt-5; color: var(--theme-color); }
   .template-academic .entry { @apply mb-2; }
 
   /* 8. Technical Template (New design) */
-  .template-technical { @apply text-sm p-8; font-family: 'Courier New', monospace, var(--font-family-body); }
+  .template-technical .preview-content-wrapper { @apply text-sm p-8; font-family: 'Courier New', monospace, var(--font-family-body); }
   .template-technical .name { @apply text-2xl p-2; background-color: var(--theme-color); color: var(--theme-color-foreground, hsl(var(--primary-foreground))); }
   .template-technical .contact-info { @apply my-2; }
   .template-technical .section-title { @apply text-base; color: var(--theme-color); }
@@ -179,7 +179,7 @@
   .template-technical a { @apply underline; }
 
   /* 9. Elegant Template (New design) */
-  .template-elegant { @apply p-8; }
+  .template-elegant .preview-content-wrapper { @apply p-8; }
   .template-elegant .name { @apply text-5xl text-center tracking-wider font-light; }
   .template-elegant .contact-info { @apply text-center text-xs tracking-widest uppercase my-2; }
   .template-elegant .section-title { @apply text-center text-sm tracking-widest uppercase my-5; }
@@ -187,7 +187,7 @@
   .template-elegant .section-title::before { @apply mb-1 mt-0; }
 
   /* 10. Compact Template (New design) */
-  .template-compact { @apply text-xs p-6; }
+  .template-compact .preview-content-wrapper { @apply text-xs p-6; }
   .template-compact .name { @apply text-2xl font-bold; }
   .template-compact .contact-info { @apply text-xs mb-2; }
   .template-compact section { @apply mb-2; }

@@ -403,11 +403,15 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
       }
   
       try {
+          // Temporarily set body background to white for clean capture
           document.body.style.backgroundColor = 'white';
           const canvas = await html2canvas(elementToCapture as HTMLElement, {
-              scale: 3, useCORS: true, backgroundColor: '#ffffff',
+              scale: 3, 
+              useCORS: true, 
+              backgroundColor: '#ffffff',
           });
-          document.body.style.backgroundColor = '';
+          document.body.style.backgroundColor = ''; // Revert body background
+          
           const imgData = canvas.toDataURL('image/png');
           const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
           const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -431,7 +435,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
           toast({ variant: "destructive", title: "Download Failed", description: "Error generating PDF." });
       } finally {
           setIsDownloading(false);
-          document.body.style.backgroundColor = '';
+          document.body.style.backgroundColor = ''; // Ensure revert on error too
       }
   };
 
@@ -829,7 +833,6 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                 </DialogHeader>
                 <div className="flex-1 overflow-auto bg-muted/40 p-4">
                     <ResumePreview
-                        ref={previewRef}
                         resumeData={resume}
                         templateName={template}
                         className="w-full max-w-[8.5in] mx-auto bg-white shadow-lg"
