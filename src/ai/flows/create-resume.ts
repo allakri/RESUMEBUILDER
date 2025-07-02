@@ -66,6 +66,9 @@ const createResumeFlow = ai.defineFlow(
         achievements: [],
         hobbies: [],
         customSections: [],
+        linkedIn: undefined,
+        drivingLicense: undefined,
+        profilePictureUrl: undefined,
       };
     }
 

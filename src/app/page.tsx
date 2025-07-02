@@ -7,21 +7,21 @@ import { ResumeEditor } from "@/components/resume-editor";
 import { ResumeOptimizer } from "@/components/resume-optimizer";
 import { type ResumeDataWithIds } from "@/ai/resume-schema";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ResumeCameraCapture } from "@/components/resume-camera-capture";
 import { ResumeWizard } from "@/components/resume-wizard";
 
 type Step = "CHOICE" | "UPLOAD" | "CAMERA" | "EDIT" | "WIZARD";
 
 const BLANK_RESUME: ResumeDataWithIds = {
-  firstName: "Your",
-  lastName: "Name",
-  profession: "Your Profession",
-  email: "your.email@example.com",
-  phone: "123-456-7890",
-  location: "City, Country",
-  pinCode: "12345",
-  summary: "A brief professional summary about you.",
+  firstName: "",
+  lastName: "",
+  profession: "",
+  email: "",
+  phone: "",
+  location: "",
+  pinCode: "",
+  summary: "",
   experience: [],
   education: [],
   skills: [],
@@ -30,6 +30,9 @@ const BLANK_RESUME: ResumeDataWithIds = {
   achievements: [],
   hobbies: [],
   customSections: [],
+  linkedIn: undefined,
+  drivingLicense: undefined,
+  profilePictureUrl: undefined
 };
 
 
@@ -107,9 +110,9 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 antialiased">
       <header className="mb-16 text-center">
-        <div className="inline-block bg-primary/10 p-4 rounded-full mb-6">
+        <div className="inline-block bg-primary/10 p-4 rounded-full mb-6 ring-8 ring-primary/5">
             <FileText className="h-16 w-16 text-primary" />
         </div>
         <h1 className="text-5xl font-bold tracking-tight">ResumeRevamp</h1>
@@ -119,49 +122,43 @@ export default function Home() {
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl w-full">
-        <Card className="hover:border-primary hover:shadow-lg transition-all duration-300">
+        <Card className="hover:border-primary hover:shadow-lg transition-all duration-300 text-center md:text-left">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex flex-col md:flex-row items-center gap-2">
               <Plus />
               Create a new resume
             </CardTitle>
+            <CardDescription>Start with a blank slate and build your resume step-by-step with our guided wizard.</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground mb-4">
-              Start with a blank slate and build your resume step-by-step with our guided wizard.
-            </p>
             <Button className="w-full" onClick={handleStartFromScratch}>
               Start From Scratch
             </Button>
           </CardContent>
         </Card>
-        <Card className="hover:border-primary hover:shadow-lg transition-all duration-300">
+        <Card className="hover:border-primary hover:shadow-lg transition-all duration-300 text-center md:text-left">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex flex-col md:flex-row items-center gap-2">
               <Upload />
               Upload an existing resume
             </CardTitle>
+            <CardDescription>Import a PDF, DOCX, or image file to get started instantly.</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground mb-4">
-              Import a PDF, DOCX, or image file to get started instantly.
-            </p>
             <Button className="w-full" onClick={handleUpload}>
               Upload & Optimize
             </Button>
           </CardContent>
         </Card>
-         <Card className="hover:border-primary hover:shadow-lg transition-all duration-300">
+         <Card className="hover:border-primary hover:shadow-lg transition-all duration-300 text-center md:text-left">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex flex-col md:flex-row items-center gap-2">
               <Camera />
               Use your camera
             </CardTitle>
+            <CardDescription>Take a photo of your resume and let our AI extract the info.</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground mb-4">
-              Take a photo of your resume and let our AI extract the info.
-            </p>
             <Button className="w-full" onClick={handleUseCamera}>
               Take Photo
             </Button>
