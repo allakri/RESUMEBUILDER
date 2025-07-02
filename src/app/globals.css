@@ -5,25 +5,25 @@
 
 @layer base {
   :root {
-    --background: 175 26% 96%;
-    --foreground: 180 5% 15%;
-    --card: 175 20% 100%;
-    --card-foreground: 180 5% 15%;
-    --popover: 175 20% 100%;
-    --popover-foreground: 180 5% 15%;
-    --primary: 180 100% 25%;
-    --primary-foreground: 180 100% 98%;
-    --secondary: 176 15% 91%;
-    --secondary-foreground: 180 5% 25%;
-    --muted: 176 15% 91%;
-    --muted-foreground: 180 4% 40%;
-    --accent: 52 96% 84%;
-    --accent-foreground: 52 100% 15%;
+    --background: 225 50% 97%;
+    --foreground: 225 40% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 225 40% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 225 40% 15%;
+    --primary: 225 73% 57%;
+    --primary-foreground: 225 73% 98%;
+    --secondary: 225 60% 94%;
+    --secondary-foreground: 225 30% 25%;
+    --muted: 225 60% 94%;
+    --muted-foreground: 225 15% 45%;
+    --accent: 210 100% 70%;
+    --accent-foreground: 210 100% 15%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 176 15% 85%;
-    --input: 176 15% 85%;
-    --ring: 180 100% 25%;
+    --border: 225 40% 88%;
+    --input: 225 40% 88%;
+    --ring: 225 73% 57%;
     --radius: 0.5rem;
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
@@ -33,25 +33,25 @@
   }
 
   .dark {
-    --background: 180 4% 8%;
-    --foreground: 175 5% 80%;
-    --card: 180 4% 12%;
-    --card-foreground: 175 5% 80%;
-    --popover: 180 4% 8%;
-    --popover-foreground: 175 5% 80%;
-    --primary: 180 84% 45%;
-    --primary-foreground: 180 100% 98%;
-    --secondary: 180 4% 18%;
-    --secondary-foreground: 175 5% 80%;
-    --muted: 180 4% 18%;
-    --muted-foreground: 180 2% 55%;
-    --accent: 52 86% 74%;
-    --accent-foreground: 52 100% 10%;
+    --background: 225 30% 10%;
+    --foreground: 225 20% 85%;
+    --card: 225 25% 14%;
+    --card-foreground: 225 20% 85%;
+    --popover: 225 30% 10%;
+    --popover-foreground: 225 20% 85%;
+    --primary: 225 80% 65%;
+    --primary-foreground: 225 50% 10%;
+    --secondary: 225 20% 20%;
+    --secondary-foreground: 225 20% 85%;
+    --muted: 225 20% 20%;
+    --muted-foreground: 225 15% 60%;
+    --accent: 210 90% 75%;
+    --accent-foreground: 210 100% 10%;
     --destructive: 0 63% 31%;
     --destructive-foreground: 0 0% 100%;
-    --border: 180 4% 22%;
-    --input: 180 4% 22%;
-    --ring: 180 84% 45%;
+    --border: 225 20% 25%;
+    --input: 225 20% 25%;
+    --ring: 225 80% 65%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
@@ -186,5 +186,3 @@
   .template-compact .section-title { @apply text-xs font-bold uppercase tracking-wider border-b mb-1 pb-px; border-color: var(--theme-color); color: var(--theme-color); }
   .template-compact .responsibilities { @apply mt-0 text-xs; }
 }
-
-    

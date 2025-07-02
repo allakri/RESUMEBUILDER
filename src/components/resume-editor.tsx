@@ -121,7 +121,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
   } = useHistoryState<ResumeDataWithIds>(assignIdsToResume(initialResumeData));
 
   const [template, setTemplate] = useState("professional");
-  const [themeColor, setThemeColor] = useState("#008080"); // Default to Teal
+  const [themeColor, setThemeColor] = useState("#4169E1"); // Default to Royal Blue
   const [fontPair, setFontPair] = useState<keyof typeof FONT_PAIRS>("sans");
 
   const [isDownloading, setIsDownloading] = useState(false);

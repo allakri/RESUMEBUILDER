@@ -28,14 +28,15 @@ const templates = [
 ];
 
 const colors = [
-  { name: "White", value: "#ffffff", ring: "ring-gray-400" },
-  { name: "Dark Slate", value: "#374151", ring: "ring-gray-500" },
-  { name: "Cool Blue", value: "#3b82f6", ring: "ring-blue-500" },
-  { name: "Emerald", value: "#10b981", ring: "ring-emerald-500" },
-  { name: "Forest Green", value: "#166534", ring: "ring-green-700" },
-  { name: "Sunset Orange", value: "#f97316", ring: "ring-orange-500" },
-  { name: "Crimson Red", value: "#dc2626", ring: "ring-red-600" },
+  { name: "Royal Blue", value: "#4169E1", ring: "ring-blue-600" },
+  { name: "Navy", value: "#1E3A8A", ring: "ring-blue-800" },
+  { name: "Charcoal", value: "#374151", ring: "ring-gray-500" },
+  { name: "Silver", value: "#E5E7EB", ring: "ring-gray-300" },
+  { name: "Gold", value: "#FBBF24", ring: "ring-amber-400" },
+  { name: "Emerald", value: "#10B981", ring: "ring-emerald-500" },
+  { name: "Crimson", value: "#DC2626", ring: "ring-red-600" },
 ];
+
 
 export default function TemplatesPage() {
   const [selectedColor, setSelectedColor] = useState(colors[0].value);
