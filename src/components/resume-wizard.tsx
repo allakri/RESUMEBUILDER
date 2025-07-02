@@ -1,17 +1,41 @@
 
 "use client";
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import type { ResumeDataWithIds } from '@/ai/resume-schema';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { Textarea } from './ui/textarea';
 import { Card } from './ui/card';
-import { FileText, Search, CheckCircle2, X } from 'lucide-react';
-import Image from 'next/image';
-import Link from 'next/link';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
+import { FileText, ChevronLeft, ChevronRight, PlusCircle, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ResumePreview } from './resume-preview';
+
+// Replicating CustomInput and CustomTextarea from resume-editor.tsx for use here.
+const CustomInput = React.forwardRef<HTMLInputElement, {label?:string} & React.ComponentProps<typeof Input>>(({ className, type, label, ...props }, ref) => {
+    const id = React.useId();
+    if (!label) return <Input type={type} className={className} ref={ref} {...props}/>
+    return (
+        <div className="grid w-full items-center gap-1.5">
+            <label htmlFor={id} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">{label}</label>
+            <Input id={id} type={type} className={cn("bg-white text-black", className)} ref={ref} {...props} />
+        </div>
+    );
+});
+CustomInput.displayName = "Input";
+
+const CustomTextarea = React.forwardRef<HTMLTextAreaElement, {label?: string} & React.ComponentProps<typeof Textarea>>(({ className, label, ...props }, ref) => {
+    const id = React.useId();
+    if (!label) return <Textarea className={cn("bg-white text-black", className)} ref={ref} {...props} />
+    return (
+      <div className="grid w-full gap-1.5">
+        <label htmlFor={id} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">{label}</label>
+        <Textarea id={id} className={cn("bg-white text-black", className)} ref={ref} {...props} />
+      </div>
+    )
+});
+CustomTextarea.displayName = "Textarea";
+
 
 interface ResumeWizardProps {
     initialResumeData: ResumeDataWithIds;
@@ -19,201 +43,185 @@ interface ResumeWizardProps {
     onBack: () => void;
 }
 
-type WizardStep = 'heading';
+type WizardStep = 'heading' | 'experience' | 'education' | 'skills' | 'summary' | 'finalize';
 
-const TEMPLATES = [
-    { id: 'professional', name: 'Professional', imageUrl: 'https://placehold.co/200x283.png', hint: 'resume document' },
-    { id: 'modern', name: 'Modern', imageUrl: 'https://placehold.co/200x283.png', hint: 'resume layout' },
-    { id: 'classic', name: 'Classic', imageUrl: 'https://placehold.co/200x283.png', hint: 'resume text' },
-    { id: 'executive', name: 'Executive', imageUrl: 'https://placehold.co/200x283.png', hint: 'resume corporate' },
-    { id: 'minimalist', name: 'Minimalist', imageUrl: 'https://placehold.co/200x283.png', hint: 'resume simple' },
-    { id: 'creative', name: 'Creative', imageUrl: 'https://placehold.co/200x283.png', hint: 'resume design' },
+const WIZARD_STEPS: {id: WizardStep, title: string}[] = [
+    { id: 'heading', title: 'Heading' },
+    { id: 'experience', title: 'Professional Experience' },
+    { id: 'education', title: 'Education' },
+    { id: 'skills', title: 'Skills' },
+    { id: 'summary', title: 'Summary' },
+    { id: 'finalize', title: 'Finalize' },
 ];
-
-const THEME_COLORS = ['#333333', '#008080', '#1E40AF', '#86198F', '#F97316', '#DC2626'];
-
 
 export function ResumeWizard({ initialResumeData, onComplete, onBack }: ResumeWizardProps) {
     const [step, setStep] = useState<WizardStep>('heading');
     const [resume, setResume] = useState<ResumeDataWithIds>(initialResumeData);
+    const [themeColor, setThemeColor] = useState('#4169e1'); // Royal Blue
 
-    const [firstName, setFirstName] = useState(resume.name.split(' ')[0] === 'Your' ? '' : resume.name.split(' ')[0] || '');
-    const [surname, setSurname] = useState(resume.name.split(' ')[1] === 'Name' ? '' : resume.name.split(' ').slice(1).join(' ') || '');
-    const [city, setCity] = useState('');
-    const [country, setCountry] = useState('');
-    const [pincode, setPincode] = useState('');
-
-    const [selectedTemplate, setSelectedTemplate] = useState('professional');
-    const [themeColor, setThemeColor] = useState('#333333');
-    const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
-
-
-    const handleNext = () => {
-        const finalResume = {
-            ...resume,
-            name: `${firstName} ${surname}`.trim(),
-            location: [city, country, pincode].filter(Boolean).join(', '),
-        };
-        onComplete(finalResume);
-    }
-    
-    const previewResumeData: ResumeDataWithIds = {
-        ...resume,
-        name: `${firstName} ${surname}`.trim() || "Your Name",
-        location: [city, country, pincode].filter(Boolean).join(', ') || "City, Country",
-        email: resume.email === 'your.email@example.com' ? "your.email@example.com" : resume.email,
-        phone: resume.phone === '123-456-7890' ? "123-456-7890" : resume.phone,
+    const handleUpdate = (updater: (draft: ResumeDataWithIds) => void) => {
+        const newResume = JSON.parse(JSON.stringify(resume));
+        updater(newResume);
+        setResume(newResume);
     };
 
-    const renderHeadingStep = () => {
-        return (
-            <div className='flex flex-col h-full'>
-                <h1 className="text-3xl font-bold">Resume Heading</h1>
-                <div className="flex-grow mt-8">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-16">
-                        {/* Left side: Form */}
-                        <div className="space-y-6 max-w-lg">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="relative">
-                                    <label className="text-xs font-semibold text-gray-500">FIRST NAME</label>
-                                    <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} className="pr-8" />
-                                    {firstName && <CheckCircle2 className="absolute right-2 top-7 h-5 w-5 text-green-500" />}
-                                </div>
-                                <div className="relative">
-                                    <label className="text-xs font-semibold text-gray-500">SURNAME</label>
-                                    <Input value={surname} onChange={(e) => setSurname(e.target.value)} className="pr-8" />
-                                    {surname && <CheckCircle2 className="absolute right-2 top-7 h-5 w-5 text-green-500" />}
-                                </div>
-                            </div>
-                             <div className="grid grid-cols-3 gap-4">
-                                <div className="relative col-span-1">
-                                    <label className="text-xs font-semibold text-gray-500">CITY</label>
-                                    <Input value={city} onChange={(e) => setCity(e.target.value)} className="pr-8" />
-                                    {city && <CheckCircle2 className="absolute right-2 top-7 h-5 w-5 text-green-500" />}
-                                </div>
-                                 <div className="relative col-span-1">
-                                    <label className="text-xs font-semibold text-gray-500">COUNTRY</label>
-                                    <Input value={country} onChange={(e) => setCountry(e.target.value)} className="pr-8" />
-                                    {country && <CheckCircle2 className="absolute right-2 top-7 h-5 w-5 text-green-500" />}
-                                </div>
-                                 <div className="relative col-span-1">
-                                    <label className="text-xs font-semibold text-gray-500">PIN CODE</label>
-                                    <Input value={pincode} onChange={(e) => setPincode(e.target.value)} className="pr-8"/>
-                                    {pincode && <CheckCircle2 className="absolute right-2 top-7 h-5 w-5 text-green-500" />}
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="relative">
-                                    <label className="text-xs font-semibold text-gray-500">PHONE</label>
-                                    <Input value={resume.phone} onChange={(e) => setResume({...resume, phone: e.target.value})} className="pr-8" />
-                                    {resume.phone !== '123-456-7890' && resume.phone && <CheckCircle2 className="absolute right-2 top-7 h-5 w-5 text-green-500" />}
-                                </div>
-                                <div className="relative">
-                                    <label className="text-xs font-semibold text-gray-500">EMAIL</label>
-                                    <Input type="email" value={resume.email} onChange={(e) => setResume({...resume, email: e.target.value})} className="pr-8"/>
-                                    {resume.email !== 'your.email@example.com' && resume.email && <CheckCircle2 className="absolute right-2 top-7 h-5 w-5 text-green-500" />}
-                                </div>
-                            </div>
-                        </div>
+    const handleNext = () => {
+        const currentStepIndex = WIZARD_STEPS.findIndex(s => s.id === step);
+        if (currentStepIndex < WIZARD_STEPS.length - 1) {
+            setStep(WIZARD_STEPS[currentStepIndex + 1].id);
+        } else {
+            onComplete(resume);
+        }
+    };
+    
+    const handlePrev = () => {
+        const currentStepIndex = WIZARD_STEPS.findIndex(s => s.id === step);
+        if (currentStepIndex > 0) {
+            setStep(WIZARD_STEPS[currentStepIndex - 1].id);
+        } else {
+            onBack();
+        }
+    };
 
-                        {/* Right side: Template Preview */}
-                        <div className="flex flex-col items-center justify-start mt-8 lg:mt-0">
-                            <Card className="overflow-hidden relative group w-full max-w-[350px] shadow-lg cursor-pointer" onClick={() => setIsTemplateModalOpen(true)}>
-                                <div className="aspect-[8.5/11] w-full scale-100 transform-origin-top bg-white">
-                                    <ResumePreview
-                                        resumeData={previewResumeData}
-                                        templateName={selectedTemplate}
-                                        className="w-full h-full"
-                                        style={{ "--theme-color": themeColor } as React.CSSProperties}
-                                    />
-                                </div>
-                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                                    <Search className="h-10 w-10 text-white" />
-                                </div>
-                            </Card>
-                            <Button variant="link" className="mt-2 text-primary" onClick={() => setIsTemplateModalOpen(true)}>Change template</Button>
-                        </div>
+    const renderStepContent = () => {
+        switch (step) {
+            case 'heading':
+                return (
+                    <div className="space-y-6 max-w-2xl">
+                        <h2 className="text-2xl font-bold">What's the best way for employers to contact you?</h2>
+                        <p className="text-muted-foreground">We suggest including an email and phone number.</p>
+                        <CustomInput label="Full Name" value={resume.name} onChange={(e) => handleUpdate(draft => { draft.name = e.target.value })} />
+                        <CustomInput label="Email Address" type="email" value={resume.email} onChange={(e) => handleUpdate(draft => { draft.email = e.target.value })} />
+                        <CustomInput label="Phone Number" value={resume.phone} onChange={(e) => handleUpdate(draft => { draft.phone = e.target.value })} />
+                        <CustomInput label="Location (e.g. City, Country)" value={resume.location ?? ""} onChange={(e) => handleUpdate(draft => { draft.location = e.target.value })} />
                     </div>
-                </div>
-
-                <div className="mt-auto flex justify-between items-end pb-4">
-                    <div>
-                         <Button variant="outline" onClick={onBack} className="rounded-full px-8 py-5 border-black text-black hover:bg-gray-100">Back</Button>
-                         <div className="text-xs text-gray-500 mt-4 space-x-2">
-                            <Link href="#" className="hover:underline">Terms</Link>
-                            <span>|</span>
-                            <Link href="#" className="hover:underline">Privacy Policy</Link>
-                            <span>|</span>
-                            <Link href="#" className="hover:underline">Contact Us</Link>
-                            <span className='block mt-1'>&copy; 2025, NOW Limited. All rights reserved.</span>
+                );
+            case 'experience':
+                return (
+                    <div className="space-y-6 max-w-2xl">
+                        <h2 className="text-2xl font-bold">Tell us about your most recent job.</h2>
+                        <p className="text-muted-foreground">You can add more positions later in the main editor.</p>
+                        {resume.experience.map((exp, expIndex) => (
+                             <Card key={exp.id} className="p-4 space-y-4 bg-slate-50">
+                                 <CustomInput label="Job Title" value={exp.title} onChange={(e) => handleUpdate(draft => { draft.experience[expIndex].title = e.target.value })} />
+                                 <CustomInput label="Company" value={exp.company} onChange={(e) => handleUpdate(draft => { draft.experience[expIndex].company = e.target.value })} />
+                                 <CustomInput label="Location" value={exp.location} onChange={(e) => handleUpdate(draft => { draft.experience[expIndex].location = e.target.value })} />
+                                 <CustomInput label="Dates" value={exp.dates} onChange={(e) => handleUpdate(draft => { draft.experience[expIndex].dates = e.target.value })} />
+                                 <label className="block text-sm font-medium">Responsibilities</label>
+                                 {exp.responsibilities.map((resp, respIndex) => (
+                                     <div key={respIndex} className="flex items-center gap-2">
+                                         <Textarea value={resp} onChange={(e) => handleUpdate(draft => { draft.experience[expIndex].responsibilities[respIndex] = e.target.value })} rows={2} className="bg-white text-black" />
+                                         <Button variant="ghost" size="icon" onClick={() => handleUpdate(draft => { draft.experience[expIndex].responsibilities.splice(respIndex, 1) })}><Trash2 className="h-4 w-4" /></Button>
+                                     </div>
+                                 ))}
+                                 <Button variant="outline" size="sm" onClick={() => handleUpdate(draft => { draft.experience[expIndex].responsibilities.push("") })}><PlusCircle className="mr-2 h-4 w-4"/> Add Responsibility</Button>
+                             </Card>
+                        ))}
+                         {resume.experience.length === 0 && (
+                            <Button variant="outline" onClick={() => handleUpdate(draft => { draft.experience.push({ id: crypto.randomUUID(), title: "", company: "", location: "", dates: "", responsibilities: [""] }) })}>
+                                Add Experience
+                            </Button>
+                        )}
+                    </div>
+                );
+            case 'education':
+                 return (
+                    <div className="space-y-6 max-w-2xl">
+                        <h2 className="text-2xl font-bold">What is your education?</h2>
+                        <p className="text-muted-foreground">Include your most recent qualification. You can add more later.</p>
+                         {resume.education.map((edu, eduIndex) => (
+                             <Card key={edu.id} className="p-4 space-y-4 bg-slate-50">
+                                 <CustomInput label="Degree / Certificate" value={edu.degree} onChange={(e) => handleUpdate(draft => { draft.education[eduIndex].degree = e.target.value })} />
+                                 <CustomInput label="School / Institution" value={edu.school} onChange={(e) => handleUpdate(draft => { draft.education[eduIndex].school = e.target.value })} />
+                                 <CustomInput label="Location" value={edu.location} onChange={(e) => handleUpdate(draft => { draft.education[eduIndex].location = e.target.value })} />
+                                 <CustomInput label="Dates" value={edu.dates} onChange={(e) => handleUpdate(draft => { draft.education[eduIndex].dates = e.target.value })} />
+                             </Card>
+                        ))}
+                         {resume.education.length === 0 && (
+                            <Button variant="outline" onClick={() => handleUpdate(draft => { draft.education.push({ id: crypto.randomUUID(), degree: "", school: "", location: "", dates: "" }) })}>
+                                Add Education
+                            </Button>
+                        )}
+                    </div>
+                );
+            case 'skills':
+                return (
+                    <div className="space-y-6 max-w-2xl">
+                        <h2 className="text-2xl font-bold">What skills do you have?</h2>
+                        <p className="text-muted-foreground">List skills relevant to the job you are applying for. Separate them with commas.</p>
+                        <CustomTextarea label="Skills" value={(resume.skills || []).join(', ')} onChange={(e) => handleUpdate(draft => { draft.skills = e.target.value.split(',').map(s => s.trim())})} rows={6} placeholder="e.g. React, Project Management, Graphic Design" />
+                    </div>
+                );
+            case 'summary':
+                return (
+                    <div className="space-y-6 max-w-2xl">
+                        <h2 className="text-2xl font-bold">Write a professional summary.</h2>
+                        <p className="text-muted-foreground">Briefly introduce yourself and highlight your top qualifications. This is your elevator pitch!</p>
+                        <CustomTextarea label="Summary" value={resume.summary} onChange={(e) => handleUpdate(draft => { draft.summary = e.target.value })} rows={6} />
+                    </div>
+                );
+            case 'finalize':
+                return (
+                     <div className='flex flex-col h-full items-center'>
+                         <h2 className="text-2xl font-bold mb-4 text-center">Here's your resume so far!</h2>
+                         <p className="text-muted-foreground mb-8 text-center">You can make more detailed edits on the next screen.</p>
+                         <div className='w-full max-w-[8.5in] scale-90 md:scale-100 transform md:transform-none origin-top'>
+                             <ResumePreview 
+                                resumeData={resume} 
+                                templateName="modern"
+                                className="shadow-lg"
+                                style={{ "--theme-color": themeColor } as React.CSSProperties}
+                             />
                          </div>
-                    </div>
-                    <Button onClick={handleNext} size="lg" className="rounded-full bg-blue-600 hover:bg-blue-700 px-10 py-6">Continue</Button>
-                </div>
-            </div>
-        )
+                     </div>
+                );
+        }
     }
 
     return (
-        <div className="flex h-screen bg-white text-black">
-            <aside className="w-20 bg-[#2C3E50] p-4 flex flex-col items-center sticky top-0 h-screen">
-                <div className="p-2 rounded-md">
-                    <FileText className="h-8 w-8 text-white" />
+        <div className="flex h-screen bg-slate-100 text-slate-900">
+            <aside className="w-64 bg-[#1e3a8a] text-white p-6 flex-col justify-between hidden md:flex">
+                <div>
+                    <div className="mb-10 flex items-center gap-2">
+                        <FileText className="h-8 w-8 text-slate-300" />
+                        <span className='text-xl font-bold text-slate-200'>ResumeRevamp</span>
+                    </div>
+                    <nav className="flex flex-col space-y-2">
+                        {WIZARD_STEPS.map((s) => (
+                            <button
+                                key={s.id}
+                                onClick={() => setStep(s.id)}
+                                className={cn(
+                                    "text-left text-lg p-3 rounded-md transition-colors w-full",
+                                    step === s.id 
+                                        ? "bg-white/20 font-bold" 
+                                        : "hover:bg-white/10 text-slate-300"
+                                )}
+                            >
+                                {s.title}
+                            </button>
+                        ))}
+                    </nav>
+                </div>
+                <div className="text-xs text-slate-400">
+                     <p>&copy; {new Date().getFullYear()} ResumeRevamp.</p>
                 </div>
             </aside>
-            <main className="flex-1 p-10 overflow-y-auto">
-                {step === 'heading' && renderHeadingStep()}
+            <main className="flex-1 p-6 md:p-12 flex flex-col overflow-y-auto">
+                <div className="flex-grow">
+                    {renderStepContent()}
+                </div>
+                 <div className="mt-auto flex justify-between items-center pt-8 border-t">
+                    <Button variant="outline" onClick={handlePrev} size="lg">
+                        <ChevronLeft className="mr-2 h-4 w-4" />
+                        Back
+                    </Button>
+                    <Button onClick={handleNext} size="lg">
+                         {step === 'finalize' ? 'Finish & Go to Editor' : 'Continue'}
+                        <ChevronRight className="ml-2 h-4 w-4" />
+                    </Button>
+                </div>
             </main>
-            <Dialog open={isTemplateModalOpen} onOpenChange={setIsTemplateModalOpen}>
-                <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
-                    <DialogHeader>
-                        <DialogTitle>Change Template</DialogTitle>
-                         <button onClick={() => setIsTemplateModalOpen(false)} className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
-                            <X className="h-4 w-4" />
-                            <span className="sr-only">Close</span>
-                        </button>
-                    </DialogHeader>
-                    <div className="flex-1 overflow-y-auto space-y-6 p-1 pr-4">
-                        <div>
-                            <h3 className="text-lg font-semibold mb-2">Theme Color</h3>
-                            <div className="flex flex-wrap gap-3">
-                                {THEME_COLORS.map(color => (
-                                    <button
-                                        key={color}
-                                        onClick={() => setThemeColor(color)}
-                                        className={cn("h-8 w-8 rounded-full border-2 transition-all", themeColor === color ? 'border-primary ring-2 ring-primary/50' : 'border-gray-300')}
-                                        style={{ backgroundColor: color }}
-                                    >
-                                      <span className="sr-only">Set theme color to {color}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                        <div>
-                            <h3 className="text-lg font-semibold mb-2">Templates</h3>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                {TEMPLATES.map(template => (
-                                    <div
-                                        key={template.id}
-                                        className={cn(
-                                            "border-2 rounded-lg overflow-hidden cursor-pointer transition-all",
-                                            selectedTemplate === template.id ? "border-primary ring-2 ring-primary/50" : "border-gray-200 hover:border-primary/50"
-                                        )}
-                                        onClick={() => setSelectedTemplate(template.id)}
-                                    >
-                                        <Image src={template.imageUrl} alt={template.name} width={200} height={283} className="w-full object-cover" data-ai-hint={template.hint} />
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button size="lg" onClick={() => setIsTemplateModalOpen(false)}>Done</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </div>
     );
 }
-
-    
