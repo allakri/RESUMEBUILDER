@@ -16,6 +16,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/t
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Switch } from './ui/switch';
 import { Label } from './ui/label';
+import { Badge } from './ui/badge';
 
 interface ResumeWizardProps {
     initialResumeData: ResumeDataWithIds;
@@ -453,18 +454,67 @@ const EducationStep = ({ resume, onUpdate }: { resume: ResumeDataWithIds, onUpda
 };
 
 const SkillsStep = ({ resume, onUpdate }: { resume: ResumeDataWithIds, onUpdate: (fn: (d: ResumeDataWithIds) => void) => void }) => {
+    const [currentSkill, setCurrentSkill] = useState('');
+
+    const handleAddSkill = () => {
+        if (currentSkill.trim() && !resume.skills.includes(currentSkill.trim())) {
+            onUpdate(d => {
+                d.skills.push(currentSkill.trim());
+            });
+            setCurrentSkill('');
+        } else {
+            // Clear input even if skill is duplicate or empty, to avoid confusion
+            setCurrentSkill('');
+        }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleAddSkill();
+        }
+    };
+
+    const handleRemoveSkill = (skillToRemove: string) => {
+        onUpdate(d => {
+            d.skills = d.skills.filter(skill => skill !== skillToRemove);
+        });
+    };
+
     return (
         <div className="space-y-6">
             <div>
                 <h1 className="text-3xl font-bold">Highlight your key skills</h1>
-                <p className="text-muted-foreground mt-1">List your most important technical and soft skills. Separate them with commas.</p>
+                <p className="text-muted-foreground mt-1">Add your most important skills one by one. Press Enter or click "Add" to add a skill.</p>
             </div>
-            <Textarea 
-                placeholder="e.g. React, TypeScript, Project Management, Public Speaking..."
-                value={resume.skills.join(', ')}
-                onChange={(e) => onUpdate(d => { d.skills = e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
-                rows={8}
-            />
+            <div className="flex gap-2">
+                <Input
+                    placeholder="e.g. React"
+                    value={currentSkill}
+                    onChange={(e) => setCurrentSkill(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    aria-label="Add a new skill"
+                />
+                <Button onClick={handleAddSkill}>Add Skill</Button>
+            </div>
+            <Card className="p-4 bg-muted/40 min-h-[150px]">
+                <CardContent className="p-0">
+                    <div className="flex flex-wrap gap-2">
+                        {resume.skills.length === 0 ? (
+                            <p className="text-sm text-muted-foreground w-full text-center py-10">No skills added yet.</p>
+                        ) : (
+                            resume.skills.map(skill => (
+                                <Badge key={skill} variant="secondary" className="text-base py-1 px-3 flex items-center gap-2">
+                                    {skill}
+                                    <button onClick={() => handleRemoveSkill(skill)} className="rounded-full hover:bg-muted-foreground/20 p-0.5" aria-label={`Remove ${skill}`}>
+                                        <X className="h-3 w-3" />
+                                    </button>
+                                </Badge>
+                            ))
+                        )}
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     );
 };
