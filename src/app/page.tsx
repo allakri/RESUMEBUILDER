@@ -15,6 +15,7 @@ type Step = "CHOICE" | "UPLOAD" | "CAMERA" | "EDIT" | "WIZARD";
 
 const BLANK_RESUME: ResumeDataWithIds = {
   name: "Your Name",
+  profession: "Your Profession",
   email: "your.email@example.com",
   phone: "123-456-7890",
   location: "City, Country",

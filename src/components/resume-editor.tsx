@@ -151,7 +151,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
 
     switch (section.type) {
       case 'contact':
-        dataToEdit = { name: resume.name, email: resume.email, phone: resume.phone, location: resume.location };
+        dataToEdit = { name: resume.name, profession: resume.profession, email: resume.email, phone: resume.phone, location: resume.location };
         break;
       case 'summary':
         dataToEdit = { summary: resume.summary };
@@ -220,6 +220,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
       switch (editingSection.type) {
         case 'contact':
             draft.name = editFormData.name;
+            draft.profession = editFormData.profession;
             draft.email = editFormData.email;
             draft.phone = editFormData.phone;
             draft.location = editFormData.location;
@@ -426,6 +427,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
         const createTextRuns = (text: string) => text.split('\n').flatMap((line, i) => i > 0 ? [new TextRun({ break: 1 }), new TextRun(line)] : [new TextRun(line)]);
         const children: Paragraph[] = [
             new Paragraph({ text: resume.name, heading: HeadingLevel.TITLE, alignment: 'center' }),
+            ...(resume.profession ? [new Paragraph({ text: resume.profession, alignment: 'center' })] : []),
             new Paragraph({ text: [resume.email, resume.phone].filter(Boolean).join(" | "), alignment: 'center' }),
             ...(resume.websites && resume.websites.length > 0 ? [new Paragraph({ text: resume.websites.map(w => w.url).join(" | "), alignment: 'center' })] : []),
             new Paragraph(""),
@@ -505,6 +507,7 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                 content = (
                     <div className="space-y-4">
                         <CustomInput label="Full Name" value={editFormData.name} onChange={(e) => setEditFormData({...editFormData, name: e.target.value})} />
+                        <CustomInput label="Profession" value={editFormData.profession ?? ''} onChange={(e) => setEditFormData({...editFormData, profession: e.target.value})} placeholder="e.g. Software Engineer" />
                         <CustomInput label="Email Address" type="email" value={editFormData.email} onChange={(e) => setEditFormData({...editFormData, email: e.target.value})} />
                         <CustomInput label="Phone Number" value={editFormData.phone} onChange={(e) => setEditFormData({...editFormData, phone: e.target.value})} />
                         <CustomInput label="Location (e.g. City, Country)" value={editFormData.location} onChange={(e) => setEditFormData({...editFormData, location: e.target.value})} />

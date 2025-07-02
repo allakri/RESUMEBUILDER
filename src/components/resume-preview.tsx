@@ -59,6 +59,7 @@ export const ResumePreview = React.forwardRef<HTMLDivElement, ResumePreviewProps
         <div className="preview-content-wrapper">
             <header className="header relative group">
                 <h1 className="name">{resume.name}</h1>
+                {resume.profession && <p className="text-center text-sm font-medium -mt-1 mb-2 tracking-wider">{resume.profession}</p>}
                 <p className="contact-info">
                     {[resume.email, resume.phone, resume.location].filter(Boolean).join(" | ")}
                 </p>
