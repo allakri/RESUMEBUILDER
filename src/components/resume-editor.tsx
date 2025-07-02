@@ -393,50 +393,51 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
   };
 
   const handleDownloadPdf = async () => {
-      setIsDownloading(true);
-      const elementToCapture = previewRef.current?.querySelector('.preview-content-wrapper') || previewRef.current;
-  
-      if (!elementToCapture) {
-          toast({ variant: "destructive", title: "Preview Not Found" });
-          setIsDownloading(false);
-          return;
-      }
-  
-      try {
-          // Temporarily set body background to white for clean capture
-          document.body.style.backgroundColor = 'white';
-          const canvas = await html2canvas(elementToCapture as HTMLElement, {
-              scale: 3, 
-              useCORS: true, 
-              backgroundColor: '#ffffff',
-          });
-          document.body.style.backgroundColor = ''; // Revert body background
-          
-          const imgData = canvas.toDataURL('image/png');
-          const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
-          const pdfWidth = pdf.internal.pageSize.getWidth();
-          const pdfHeight = pdf.internal.pageSize.getHeight();
-          const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-          let heightLeft = imgHeight;
-          let position = 0;
-  
-          pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-          heightLeft -= pdfHeight;
-  
-          while (heightLeft > 0) {
-              position = position - pdfHeight;
-              pdf.addPage();
-              pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-              heightLeft -= pdfHeight;
-          }
-          pdf.save(`${[resume.firstName, resume.lastName].join('_') || 'resume'}_${template}.pdf`);
-      } catch (error) {
-          console.error("PDF Download failed:", error);
-          toast({ variant: "destructive", title: "Download Failed", description: "Error generating PDF." });
-      } finally {
-          setIsDownloading(false);
-          document.body.style.backgroundColor = ''; // Ensure revert on error too
-      }
+    setIsDownloading(true);
+    // The ref points to the main preview component in the editor, not the one in the dialog.
+    const elementToCapture = previewRef.current?.querySelector('.preview-content-wrapper') || previewRef.current;
+
+    if (!elementToCapture) {
+        toast({ variant: "destructive", title: "Preview Not Found" });
+        setIsDownloading(false);
+        return;
+    }
+
+    try {
+        const canvas = await html2canvas(elementToCapture as HTMLElement, {
+            scale: 4, // Increase scale for higher resolution to fix quality and potential layout issues
+            useCORS: true, 
+            backgroundColor: '#ffffff', // Set a white background for the capture
+        });
+        
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        
+        // Calculate the height of the image in the PDF, maintaining aspect ratio
+        const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+        let heightLeft = imgHeight;
+        let position = 0;
+
+        // Add the first page
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+        heightLeft -= pdfHeight;
+
+        // Add more pages if the resume is longer than one page
+        while (heightLeft > 0) {
+            position -= pdfHeight;
+            pdf.addPage();
+            pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+            heightLeft -= pdfHeight;
+        }
+        pdf.save(`${[resume.firstName, resume.lastName].join('_') || 'resume'}_${template}.pdf`);
+    } catch (error) {
+        console.error("PDF Download failed:", error);
+        toast({ variant: "destructive", title: "Download Failed", description: "Could not generate PDF. Please try again." });
+    } finally {
+        setIsDownloading(false);
+    }
   };
 
   const handleDownloadDocx = async () => {
@@ -909,3 +910,6 @@ const CustomTextarea = React.forwardRef<HTMLTextAreaElement, {label?: string} & 
 });
 CustomTextarea.displayName = "Textarea";
 
+
+
+    
