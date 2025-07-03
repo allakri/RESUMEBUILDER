@@ -2,14 +2,14 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
-import type { ResumeDataWithIds, ExperienceWithId, EducationWithId } from '@/ai/resume-schema';
+import type { ResumeDataWithIds, ExperienceWithId, EducationWithId, CustomSectionWithId } from '@/ai/resume-schema';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from './ui/dialog';
 import Image from 'next/image';
-import { FileText, ChevronLeft, ChevronRight, Check, User, Briefcase, GraduationCap, Wrench, FileSignature, CheckCircle, Upload, Plus, Trash2, Palette, X } from 'lucide-react';
+import { FileText, ChevronLeft, ChevronRight, Check, User, Briefcase, GraduationCap, Wrench, FileSignature, CheckCircle, Upload, Plus, Trash2, Palette, X, PlusSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ResumePreview } from './resume-preview';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
@@ -24,7 +24,7 @@ interface ResumeWizardProps {
     onBack: () => void;
 }
 
-type WizardStepId = 'heading' | 'experience' | 'education' | 'skills' | 'summary' | 'finalize';
+type WizardStepId = 'heading' | 'experience' | 'education' | 'skills' | 'summary' | 'custom' | 'finalize';
 
 const WIZARD_STEPS: {id: WizardStepId, title: string, icon: React.ElementType}[] = [
     { id: 'heading', title: 'Heading', icon: User },
@@ -32,6 +32,7 @@ const WIZARD_STEPS: {id: WizardStepId, title: string, icon: React.ElementType}[]
     { id: 'education', title: 'Education', icon: GraduationCap },
     { id: 'skills', title: 'Skills', icon: Wrench },
     { id: 'summary', title: 'Summary', icon: FileSignature },
+    { id: 'custom', title: 'Custom', icon: PlusSquare },
     { id: 'finalize', title: 'Finalize', icon: Check },
 ];
 
@@ -108,6 +109,8 @@ export function ResumeWizard({ initialResumeData, onComplete, onBack }: ResumeWi
                 return resume.skills.length > 0;
             case 'summary':
                 return !!resume.summary;
+            case 'custom':
+                return true; // This step is optional
             default:
                 return false;
         }
@@ -142,6 +145,8 @@ export function ResumeWizard({ initialResumeData, onComplete, onBack }: ResumeWi
                 return <SkillsStep resume={resume} onUpdate={handleUpdate} />;
             case 'summary':
                 return <SummaryStep resume={resume} onUpdate={handleUpdate} />;
+            case 'custom':
+                return <CustomSectionsStep resume={resume} onUpdate={handleUpdate} />;
             case 'finalize':
                 return <FinalizeStep />;
         }
@@ -532,6 +537,77 @@ const SummaryStep = ({ resume, onUpdate }: { resume: ResumeDataWithIds, onUpdate
                 onChange={(e) => onUpdate(d => { d.summary = e.target.value })}
                 rows={8}
             />
+        </div>
+    );
+};
+
+const CustomSectionsStep = ({ resume, onUpdate }: { resume: ResumeDataWithIds, onUpdate: (fn: (d: ResumeDataWithIds) => void) => void }) => {
+    const [editingSection, setEditingSection] = useState<CustomSectionWithId | null>(null);
+
+    const handleSave = () => {
+        if (!editingSection) return;
+        onUpdate(draft => {
+            if (!draft.customSections) draft.customSections = [];
+            const index = draft.customSections.findIndex(s => s.id === editingSection.id);
+            if (index > -1) {
+                draft.customSections[index] = editingSection;
+            } else {
+                draft.customSections.push(editingSection);
+            }
+        });
+        setEditingSection(null);
+    };
+
+    const handleRemove = (id: string) => {
+        onUpdate(draft => {
+            draft.customSections = (draft.customSections || []).filter(s => s.id !== id);
+        });
+    }
+
+    const startNew = () => setEditingSection({ id: crypto.randomUUID(), title: '', content: '' });
+
+    if (editingSection) {
+        return (
+            <div className="space-y-4">
+                <h2 className="text-2xl font-bold">{resume.customSections?.find(s => s.id === editingSection.id) ? 'Edit Section' : 'Add New Section'}</h2>
+                <Input
+                    placeholder="Section Title (e.g., Certifications, Languages)"
+                    value={editingSection.title}
+                    onChange={e => setEditingSection({ ...editingSection, title: e.target.value })}
+                />
+                <Textarea
+                    placeholder="Content for this section..."
+                    value={editingSection.content}
+                    onChange={e => setEditingSection({ ...editingSection, content: e.target.value })}
+                    rows={6}
+                />
+                <div className="flex justify-end gap-2 pt-4">
+                    <Button variant="ghost" onClick={() => setEditingSection(null)}>Cancel</Button>
+                    <Button onClick={handleSave}>Save Section</Button>
+                </div>
+            </div>
+        )
+    }
+
+    return (
+        <div className="space-y-6">
+            <div>
+                <h1 className="text-3xl font-bold">Have anything else to add?</h1>
+                <p className="text-muted-foreground mt-1">Add custom sections like certifications, languages, or publications.</p>
+            </div>
+            {(resume.customSections || []).map(sec => (
+                <Card key={sec.id} className="p-4 flex justify-between items-center">
+                    <div>
+                        <p className="font-bold">{sec.title}</p>
+                        <p className="text-sm text-muted-foreground truncate max-w-xs">{sec.content}</p>
+                    </div>
+                    <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setEditingSection(sec)}>Edit</Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleRemove(sec.id)}><Trash2 className="h-4 w-4 text-destructive"/></Button>
+                    </div>
+                </Card>
+            ))}
+            <Button onClick={startNew} className="w-full" size="lg"><Plus className="mr-2 h-4 w-4" /> Add Custom Section</Button>
         </div>
     );
 };
