@@ -574,6 +574,7 @@ const FinalizeStep = ({ resume, selectedTemplate, setSelectedTemplate, selectedC
                 <Card className="flex-1 shadow-lg">
                     <div className="aspect-[8.5/11] w-full bg-white rounded-md shadow-inner overflow-hidden border">
                        <ResumePreview 
+                           key={`${selectedTemplate}-${selectedColor}`}
                            resumeData={resume} 
                            templateName={selectedTemplate}
                            className="scale-[0.9] origin-top"
@@ -619,6 +620,7 @@ const FinalizeStep = ({ resume, selectedTemplate, setSelectedTemplate, selectedC
                                                         resumeData={DUMMY_RESUME_DATA} 
                                                         templateName={template.id} 
                                                         className="w-[8.5in] h-[11in] bg-white" 
+                                                        style={{'--theme-color': selectedColor} as React.CSSProperties}
                                                     />
                                                 </div>
                                             </div>
