@@ -810,9 +810,6 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                     <Input id="theme-color-picker" type="color" value={themeColor} onChange={(e) => setThemeColor(e.target.value)} className="w-24 h-9 p-1"/>
                 </div>
                  <div className="flex items-end h-full">
-                    <Button variant="outline" onClick={() => handleEdit({type: 'new_experience'})}>Add Experience</Button>
-                 </div>
-                 <div className="flex items-end h-full">
                     <Button variant="outline" onClick={() => handleEdit({type: 'new_education'})}>Add Education</Button>
                  </div>
                  <div className="flex items-end h-full">
