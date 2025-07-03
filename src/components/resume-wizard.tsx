@@ -14,6 +14,7 @@ import { ResumePreview } from './resume-preview';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { Badge } from './ui/badge';
 import { ScrollArea } from './ui/scroll-area';
+import { Label } from './ui/label';
 
 interface ResumeWizardProps {
     initialResumeData: ResumeDataWithIds;
@@ -612,8 +613,14 @@ const FinalizeStep = ({ resume, selectedTemplate, setSelectedTemplate, selectedC
                                             "relative w-full overflow-hidden border-2 rounded-lg transition-all duration-300",
                                             selectedTemplate === template.id ? 'border-primary shadow-lg' : 'border-border hover:border-primary/50'
                                         )}>
-                                            <div className="aspect-[8.5/11] bg-white">
-                                                <ResumePreview resumeData={DUMMY_RESUME_DATA} templateName={template.id} className="scale-[0.35] origin-top" />
+                                            <div className="aspect-[8.5/11] bg-white overflow-hidden">
+                                                <div className="origin-top-left scale-[0.3] sm:scale-[0.35] md:scale-[0.3]">
+                                                    <ResumePreview 
+                                                        resumeData={DUMMY_RESUME_DATA} 
+                                                        templateName={template.id} 
+                                                        className="w-[8.5in] h-[11in] bg-white" 
+                                                    />
+                                                </div>
                                             </div>
                                         </Card>
                                         <h4 className="text-center font-semibold mt-2 text-sm">{template.name}</h4>
