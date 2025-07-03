@@ -667,22 +667,21 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
           isSidebarOpen ? "w-full md:w-80" : "w-full md:w-[72px]"
         )}>
             <div className="p-4 border-b border-border flex items-center justify-between gap-2">
-                <Button variant="outline" size={isSidebarOpen ? "sm" : "icon"} onClick={onBack}>
-                    <ChevronLeft className="h-4 w-4" />
-                    <span className={cn("ml-2", !isSidebarOpen && "hidden")}>Back</span>
-                </Button>
-
                 <div className="flex items-center gap-1">
-                    <div className={cn("flex items-center gap-1", !isSidebarOpen && "hidden")}>
-                        <Button onClick={undo} disabled={!canUndo || editorDisabled} variant="ghost" size="icon" aria-label="Undo"><Undo className="h-4 w-4" /></Button>
-                        <Button onClick={redo} disabled={!canRedo || editorDisabled} variant="ghost" size="icon" aria-label="Redo"><Redo className="h-4 w-4" /></Button>
-                        <Button onClick={() => setIsPreviewOpen(true)} variant="ghost" size="icon" aria-label="Preview"><Eye className="h-4 w-4"/></Button>
-                    </div>
-
                     <Button onClick={() => setIsSidebarOpen(!isSidebarOpen)} variant="ghost" size="icon" className="hidden md:flex">
                         {isSidebarOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelRightClose className="h-5 w-5" />}
                         <span className="sr-only">Toggle AI Panel</span>
                     </Button>
+                    <Button variant="outline" size={isSidebarOpen ? "sm" : "icon"} onClick={onBack}>
+                        <ChevronLeft className="h-4 w-4" />
+                        <span className={cn("ml-2", !isSidebarOpen && "hidden")}>Back</span>
+                    </Button>
+                </div>
+
+                <div className={cn("flex items-center gap-1", !isSidebarOpen && "hidden")}>
+                    <Button onClick={undo} disabled={!canUndo || editorDisabled} variant="ghost" size="icon" aria-label="Undo"><Undo className="h-4 w-4" /></Button>
+                    <Button onClick={redo} disabled={!canRedo || editorDisabled} variant="ghost" size="icon" aria-label="Redo"><Redo className="h-4 w-4" /></Button>
+                    <Button onClick={() => setIsPreviewOpen(true)} variant="ghost" size="icon" aria-label="Preview"><Eye className="h-4 w-4"/></Button>
                 </div>
             </div>
             
