@@ -32,7 +32,7 @@ import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import type { ResumeData, ResumeDataWithIds } from "@/ai/resume-schema";
-import { enhanceResumeWithReference, type AIFeedbackData } from "@/ai/flows/enhance-resume-with-reference";
+import { enhanceResumeWithReference, type AIFeedbackData, type EnhanceResumeWithReferenceOutput } from "@/ai/flows/enhance-resume-with-reference";
 import { chatEnhanceResume } from "@/ai/flows/chat-enhance-resume";
 import { useHistoryState } from "@/hooks/use-history-state";
 import { useToast } from "@/hooks/use-toast";
@@ -366,28 +366,20 @@ export function ResumeEditor({ initialResumeData, onBack, template: initialTempl
     setIsChatEnhancing(true);
     setAiFeedback(null);
     try {
-        let result: EnhanceResumeWithReferenceOutput;
-        if (referenceDataUris.length > 0) {
-            result = await enhanceResumeWithReference({
+        const result: EnhanceResumeWithReferenceOutput = referenceDataUris.length > 0
+            ? await enhanceResumeWithReference({
                 resume,
                 query: chatQuery,
                 referenceDataUris: referenceDataUris,
-            });
-        } else {
-            const simpleEnhanceResult = await chatEnhanceResume({ resume, query: chatQuery });
-            result = {
-                resume: simpleEnhanceResult,
-                feedback: {
-                    score: 0,
-                    justification: "No reference document was provided for scoring, but the resume was updated based on your general request.",
-                }
-            }
-        }
+              })
+            : await chatEnhanceResume({ resume, query: chatQuery });
         
         const finalResume = assignIdsToResume(result.resume);
         setResume(finalResume);
         setAiFeedback(result.feedback);
         setChatQuery("");
+        setReferenceFiles([]);
+        setReferenceDataUris([]);
         
         toast({ title: "AI Enhancement Complete!", description: "Your resume and feedback have been updated." });
     } catch (error) {
@@ -811,9 +803,6 @@ export function ResumeEditor({ initialResumeData, onBack, template: initialTempl
                     <label htmlFor="theme-color-picker" className="text-xs font-medium flex items-center gap-2">Theme Color</label>
                     <Input id="theme-color-picker" type="color" value={themeColor} onChange={(e) => setThemeColor(e.target.value)} className="w-24 h-9 p-1"/>
                 </div>
-                 <div className="flex items-end h-full">
-                    <Button variant="outline" onClick={() => handleEdit({type: 'new_experience'})}>Add Experience</Button>
-                 </div>
                  <div className="flex items-end h-full">
                     <Button variant="outline" onClick={() => handleEdit({type: 'new_education'})}>Add Education</Button>
                  </div>

@@ -11,7 +11,11 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import {ResumeSchema, type ResumeData} from '@/ai/resume-schema';
+import {
+  ResumeSchema,
+  EnhanceResumeWithReferenceOutputSchema,
+  type EnhanceResumeWithReferenceOutput,
+} from '@/ai/resume-schema';
 import mammoth from 'mammoth';
 
 const EnhanceResumeWithReferenceInputSchema = z.object({
@@ -22,22 +26,6 @@ const EnhanceResumeWithReferenceInputSchema = z.object({
     ),
 });
 export type EnhanceResumeWithReferenceInput = z.infer<typeof EnhanceResumeWithReferenceInputSchema>;
-
-const AIFeedbackSchema = z.object({
-    score: z.number().describe("A numerical score (0-100) representing the resume’s compatibility with the provided request and reference documents."),
-    justification: z.string().describe("A detailed explanation of the score, highlighting strengths and weaknesses."),
-    suggestedRoles: z.array(z.string()).optional().describe("A list of other job roles the user might be a good fit for."),
-    skillsToLearn: z.array(z.string()).optional().describe("A list of skills the user could learn to become a stronger candidate."),
-});
-export type AIFeedbackData = z.infer<typeof AIFeedbackSchema>;
-
-
-const EnhanceResumeWithReferenceOutputSchema = z.object({
-    resume: ResumeSchema,
-    feedback: AIFeedbackSchema,
-});
-export type EnhanceResumeWithReferenceOutput = z.infer<typeof EnhanceResumeWithReferenceOutputSchema>;
-
 
 export async function enhanceResumeWithReference(
   input: EnhanceResumeWithReferenceInput
