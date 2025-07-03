@@ -40,6 +40,8 @@ export default function Home() {
   const [step, setStep] = useState<Step>("CHOICE");
   const [resumeData, setResumeData] = useState<ResumeDataWithIds | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [editorConfig, setEditorConfig] = useState({ template: 'modern', color: '#4169E1' });
+
 
   const handleStartFromScratch = () => {
     setResumeData(BLANK_RESUME);
@@ -66,8 +68,9 @@ export default function Home() {
     setIsProcessing(false);
   }
 
-  const handleWizardComplete = (data: ResumeDataWithIds) => {
-    setResumeData(data);
+  const handleWizardComplete = (data: { resume: ResumeDataWithIds, template: string, color: string }) => {
+    setResumeData(data.resume);
+    setEditorConfig({ template: data.template, color: data.color });
     setStep("EDIT");
   };
 
@@ -84,7 +87,12 @@ export default function Home() {
   }
 
   if (step === "EDIT" && resumeData) {
-    return <ResumeEditor initialResumeData={resumeData} onBack={handleBackToWizard} />;
+    return <ResumeEditor 
+            initialResumeData={resumeData} 
+            onBack={handleBackToWizard} 
+            template={editorConfig.template}
+            color={editorConfig.color}
+          />;
   }
   
   if (step === "UPLOAD") {

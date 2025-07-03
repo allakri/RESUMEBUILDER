@@ -71,6 +71,8 @@ import { cn } from "@/lib/utils";
 interface ResumeEditorProps {
   initialResumeData: ResumeDataWithIds;
   onBack: () => void;
+  template: string;
+  color: string;
 }
 
 export type EditableSectionType = 'contact' | 'summary' | 'experience' | 'education' | 'websites' | 'projects' | 'skills' | 'achievements' | 'hobbies' | 'customSections' | 'new_experience' | 'new_education' | 'new_website' | 'new_project' | 'new_customSection';
@@ -113,7 +115,7 @@ const FONT_PAIRS = {
 }
 
 
-export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
+export function ResumeEditor({ initialResumeData, onBack, template: initialTemplate, color: initialColor }: ResumeEditorProps) {
   const {
     state: resume,
     set: setResume,
@@ -123,8 +125,8 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
     canRedo,
   } = useHistoryState<ResumeDataWithIds>(assignIdsToResume(initialResumeData));
 
-  const [template, setTemplate] = useState("professional");
-  const [themeColor, setThemeColor] = useState("#4169E1"); // Default to Royal Blue
+  const [template, setTemplate] = useState(initialTemplate);
+  const [themeColor, setThemeColor] = useState(initialColor);
   const [fontPair, setFontPair] = useState<keyof typeof FONT_PAIRS>("sans");
 
   const [isDownloading, setIsDownloading] = useState(false);
@@ -810,6 +812,9 @@ export function ResumeEditor({ initialResumeData, onBack }: ResumeEditorProps) {
                     <Input id="theme-color-picker" type="color" value={themeColor} onChange={(e) => setThemeColor(e.target.value)} className="w-24 h-9 p-1"/>
                 </div>
                  <div className="flex items-end h-full">
+                    <Button variant="outline" onClick={() => handleEdit({type: 'new_experience'})}>Add Experience</Button>
+                 </div>
+                 <div className="flex items-end h-full">
                     <Button variant="outline" onClick={() => handleEdit({type: 'new_education'})}>Add Education</Button>
                  </div>
                  <div className="flex items-end h-full">
@@ -923,7 +928,3 @@ const CustomTextarea = React.forwardRef<HTMLTextAreaElement, {label?: string} & 
     )
 });
 CustomTextarea.displayName = "Textarea";
-
-
-
-    

@@ -7,20 +7,17 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from './ui/dialog';
 import Image from 'next/image';
-import { FileText, ChevronLeft, ChevronRight, Check, User, Briefcase, GraduationCap, Wrench, FileSignature, CheckCircle, Upload, Plus, Trash2, Palette, X, PlusSquare } from 'lucide-react';
+import { FileText, ChevronLeft, ChevronRight, Check, User, Briefcase, GraduationCap, Wrench, FileSignature, CheckCircle, Plus, Trash2, Palette, X, PlusSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ResumePreview } from './resume-preview';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
-import { Alert, AlertDescription, AlertTitle } from './ui/alert';
-import { Switch } from './ui/switch';
-import { Label } from './ui/label';
 import { Badge } from './ui/badge';
+import { ScrollArea } from './ui/scroll-area';
 
 interface ResumeWizardProps {
     initialResumeData: ResumeDataWithIds;
-    onComplete: (data: ResumeDataWithIds) => void;
+    onComplete: (data: {resume: ResumeDataWithIds, template: string, color: string}) => void;
     onBack: () => void;
 }
 
@@ -37,9 +34,12 @@ const WIZARD_STEPS: {id: WizardStepId, title: string, icon: React.ElementType}[]
 ];
 
 const TEMPLATES = [
-  { id: "modern", name: "Modern", recommended: true, imageUrl: "https://placehold.co/400x566.png", hint: "resume professional" },
-  { id: "creative", name: "Creative", recommended: true, imageUrl: "https://placehold.co/400x566.png", hint: "resume modern" },
-  { id: "professional", name: "Professional", recommended: true, imageUrl: "https://placehold.co/400x566.png", hint: "resume classic" },
+  { id: "professional", name: "Professional", imageUrl: "https://placehold.co/400x566.png", hint: "resume professional" },
+  { id: "modern", name: "Modern", imageUrl: "https://placehold.co/400x566.png", hint: "resume modern" },
+  { id: "creative", name: "Creative", imageUrl: "https://placehold.co/400x566.png", hint: "resume creative" },
+  { id: "classic", name: "Classic", imageUrl: "https://placehold.co/400x566.png", hint: "resume classic" },
+  { id: "minimalist", name: "Minimalist", imageUrl: "https://placehold.co/400x566.png", hint: "resume minimalist" },
+  { id: "executive", name: "Executive", imageUrl: "https://placehold.co/400x566.png", hint: "resume executive" },
 ];
 
 const COLORS = [
@@ -50,14 +50,24 @@ const COLORS = [
   { name: "Crimson", value: "#DC2626", ring: "ring-red-600" },
 ];
 
+const DUMMY_RESUME_DATA: ResumeDataWithIds = {
+    firstName: "Alex", lastName: "Doe", profession: "Product Designer",
+    email: "alex.doe@example.com", phone: "123-456-7890", location: "San Francisco, CA", pinCode: "94107",
+    summary: "Creative Product Designer with 5+ years of experience in delivering user-centric solutions for web and mobile. Proficient in all stages of the design process, from user research to high-fidelity prototyping.",
+    experience: [{ id: 'exp1', title: 'Senior Product Designer', company: 'Innovate Inc.', location: 'Palo Alto, CA', dates: '2020 - Present', responsibilities: ['Led the redesign of the main dashboard, improving user engagement by 25%.', 'Collaborated with cross-functional teams to define product requirements.'] }],
+    education: [{ id: 'edu1', degree: 'B.S. in Human-Computer Interaction', school: 'Stanford University', location: 'Stanford, CA', dates: '2012 - 2016' }],
+    skills: ["UI/UX Design", "Figma", "Sketch", "Prototyping", "User Research", "Design Systems"],
+    websites: [{id: 'web1', name: 'Portfolio', url: 'https://example.com'}],
+    projects: [], achievements: [], hobbies: [], customSections: []
+}
+
+
 export function ResumeWizard({ initialResumeData, onComplete, onBack }: ResumeWizardProps) {
     const [step, setStep] = useState<WizardStepId>('heading');
     const [resume, setResume] = useState<ResumeDataWithIds>(initialResumeData);
 
     const [validatedFields, setValidatedFields] = useState<Set<string>>(new Set());
-    const [showSuccess, setShowSuccess] = useState(false);
     
-    const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
     const [selectedTemplate, setSelectedTemplate] = useState('modern');
     const [selectedColor, setSelectedColor] = useState(COLORS[0].value);
 
@@ -85,7 +95,7 @@ export function ResumeWizard({ initialResumeData, onComplete, onBack }: ResumeWi
         if (currentStepIndex < WIZARD_STEPS.length - 1) {
             setStep(WIZARD_STEPS[currentStepIndex + 1].id);
         } else {
-            onComplete(resume);
+            onComplete({ resume, template: selectedTemplate, color: selectedColor });
         }
     };
     
@@ -100,7 +110,7 @@ export function ResumeWizard({ initialResumeData, onComplete, onBack }: ResumeWi
     const isStepComplete = (stepId: WizardStepId) => {
         switch(stepId) {
             case 'heading':
-                return resume.firstName && resume.lastName && resume.email;
+                return !!(resume.firstName && resume.lastName && resume.email);
             case 'experience':
                 return resume.experience.length > 0;
             case 'education':
@@ -148,7 +158,13 @@ export function ResumeWizard({ initialResumeData, onComplete, onBack }: ResumeWi
             case 'custom':
                 return <CustomSectionsStep resume={resume} onUpdate={handleUpdate} />;
             case 'finalize':
-                return <FinalizeStep />;
+                return <FinalizeStep 
+                            resume={resume} 
+                            selectedTemplate={selectedTemplate}
+                            setSelectedTemplate={setSelectedTemplate}
+                            selectedColor={selectedColor}
+                            setSelectedColor={setSelectedColor}
+                        />;
         }
     }
 
@@ -198,32 +214,7 @@ export function ResumeWizard({ initialResumeData, onComplete, onBack }: ResumeWi
 
         <main className="flex-1 flex flex-col bg-muted/30">
           <div className="flex-grow p-4 sm:p-6 md:p-8 overflow-y-auto">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-full">
-              <div className="lg:col-span-2 bg-card p-8 rounded-2xl shadow-sm">
-                {renderStepContent()}
-              </div>
-              <div className="hidden lg:block space-y-6">
-                <Card className="sticky top-8 shadow-md">
-                  <CardHeader>
-                    <CardTitle>Live Preview</CardTitle>
-                    <CardDescription>This preview updates as you type.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="aspect-[8.5/11] w-full bg-white rounded-md shadow-inner overflow-hidden border">
-                      <ResumePreview 
-                        resumeData={resume} 
-                        templateName={selectedTemplate} 
-                        className="!p-4 !text-xs scale-[0.9] origin-top"
-                        style={{'--theme-color': selectedColor} as React.CSSProperties}
-                      />
-                    </div>
-                    <Button variant="outline" className="w-full mt-4" onClick={() => setIsTemplateModalOpen(true)}>
-                      <Palette className="mr-2 h-4 w-4" /> Change Template
-                    </Button>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
+             {renderStepContent()}
           </div>
           <div className="flex justify-between items-center p-4 border-t bg-card">
             <Button variant="outline" onClick={handlePrev} size="lg" className="px-8">
@@ -236,66 +227,6 @@ export function ResumeWizard({ initialResumeData, onComplete, onBack }: ResumeWi
             </Button>
           </div>
         </main>
-
-        <Dialog open={isTemplateModalOpen} onOpenChange={setIsTemplateModalOpen}>
-            <DialogContent className="max-w-6xl h-[90vh] flex flex-col p-0">
-                <DialogHeader className="p-6 border-b">
-                    <DialogTitle>Change Template</DialogTitle>
-                </DialogHeader>
-                <div className="flex-1 grid grid-cols-1 md:grid-cols-3 overflow-hidden">
-                    <div className="md:col-span-2 flex flex-col overflow-hidden">
-                        <div className="p-6 border-b flex items-center gap-4">
-                            <h3 className="text-lg font-semibold">Templates</h3>
-                            <div className="flex items-center gap-2 ml-auto">
-                                <span className="font-semibold text-sm">Color:</span>
-                                {COLORS.map((color) => (
-                                    <button
-                                    key={color.name}
-                                    onClick={() => setSelectedColor(color.value)}
-                                    className={cn(
-                                        "h-7 w-7 rounded-full border border-border transition-all focus:outline-none",
-                                        selectedColor === color.value && `ring-2 ring-offset-2 ${color.ring}`
-                                    )}
-                                    style={{ backgroundColor: color.value }}
-                                    title={color.name}
-                                    />
-                                ))}
-                            </div>
-                        </div>
-                        <div className="flex-1 overflow-y-auto bg-muted/40 p-6">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {TEMPLATES.map((template) => (
-                                    <div key={template.id} className="group cursor-pointer" onClick={() => setSelectedTemplate(template.id)}>
-                                        <Card className={cn(
-                                            "relative w-full overflow-hidden border-2 rounded-lg transition-all duration-300",
-                                            selectedTemplate === template.id ? 'border-primary' : 'border-border'
-                                        )}>
-                                            {template.recommended && <div className="absolute top-2 right-[-28px] w-[120px] transform rotate-45 bg-primary text-center text-white font-semibold py-0.5 z-10 text-xs shadow-md">RECOMMENDED</div>}
-                                            <div className="aspect-[8.5/11] bg-white">
-                                                <Image src={template.imageUrl} alt={template.name} width={400} height={566} className="w-full h-full object-cover" data-ai-hint={template.hint} />
-                                            </div>
-                                        </Card>
-                                        <h4 className="text-center font-semibold mt-2">{template.name}</h4>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                    <div className="hidden md:flex flex-col border-l">
-                         <h3 className="text-lg font-semibold p-6 border-b">Live Preview</h3>
-                         <div className="flex-1 overflow-y-auto bg-muted/40 p-6">
-                            <div className="aspect-[8.5/11] w-full bg-white rounded-md shadow-lg overflow-hidden border scale-90 origin-top">
-                                <ResumePreview resumeData={resume} templateName={selectedTemplate} style={{'--theme-color': selectedColor} as React.CSSProperties} />
-                            </div>
-                         </div>
-                    </div>
-                </div>
-                <DialogFooter className="p-6 border-t bg-background">
-                    <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
-                    <Button onClick={() => setIsTemplateModalOpen(false)}>Select Template</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
       </div>
     );
 }
@@ -343,55 +274,59 @@ const ExperienceStep = ({ resume, onUpdate }: { resume: ResumeDataWithIds, onUpd
 
     if (editingExp) {
         return (
-            <div className="space-y-4">
-                <h2 className="text-2xl font-bold">{resume.experience.find(e => e.id === editingExp.id) ? 'Edit Experience' : 'Add New Experience'}</h2>
-                <Input placeholder="Job Title" value={editingExp.title} onChange={e => setEditingExp({...editingExp, title: e.target.value})} />
-                <Input placeholder="Company" value={editingExp.company} onChange={e => setEditingExp({...editingExp, company: e.target.value})} />
-                <Input placeholder="Location" value={editingExp.location} onChange={e => setEditingExp({...editingExp, location: e.target.value})} />
-                <Input placeholder="Dates (e.g., Jan 2020 - Present)" value={editingExp.dates} onChange={e => setEditingExp({...editingExp, dates: e.target.value})} />
-                <Label>Responsibilities</Label>
-                {editingExp.responsibilities.map((resp, i) => (
-                    <div key={i} className="flex gap-2 items-center">
-                        <Input value={resp} onChange={e => {
-                            const newResps = [...editingExp.responsibilities];
-                            newResps[i] = e.target.value;
-                            setEditingExp({...editingExp, responsibilities: newResps});
-                        }} />
-                        <Button variant="ghost" size="icon" onClick={() => {
-                            const newResps = editingExp.responsibilities.filter((_, idx) => idx !== i);
-                            setEditingExp({...editingExp, responsibilities: newResps});
-                        }}><X className="h-4 w-4" /></Button>
+            <Card className="p-8">
+                <h2 className="text-2xl font-bold mb-6">{resume.experience.find(e => e.id === editingExp.id) ? 'Edit Experience' : 'Add New Experience'}</h2>
+                <div className="space-y-4">
+                    <Input placeholder="Job Title" value={editingExp.title} onChange={e => setEditingExp({...editingExp, title: e.target.value})} />
+                    <Input placeholder="Company" value={editingExp.company} onChange={e => setEditingExp({...editingExp, company: e.target.value})} />
+                    <Input placeholder="Location" value={editingExp.location} onChange={e => setEditingExp({...editingExp, location: e.target.value})} />
+                    <Input placeholder="Dates (e.g., Jan 2020 - Present)" value={editingExp.dates} onChange={e => setEditingExp({...editingExp, dates: e.target.value})} />
+                    <Label>Responsibilities</Label>
+                    {editingExp.responsibilities.map((resp, i) => (
+                        <div key={i} className="flex gap-2 items-center">
+                            <Textarea value={resp} rows={2} onChange={e => {
+                                const newResps = [...editingExp.responsibilities];
+                                newResps[i] = e.target.value;
+                                setEditingExp({...editingExp, responsibilities: newResps});
+                            }} />
+                            <Button variant="ghost" size="icon" onClick={() => {
+                                const newResps = editingExp.responsibilities.filter((_, idx) => idx !== i);
+                                setEditingExp({...editingExp, responsibilities: newResps});
+                            }}><X className="h-4 w-4" /></Button>
+                        </div>
+                    ))}
+                    <Button variant="outline" size="sm" onClick={() => setEditingExp({...editingExp, responsibilities: [...editingExp.responsibilities, '']})}>Add Responsibility</Button>
+                    <div className="flex justify-end gap-2 pt-4">
+                        <Button variant="ghost" onClick={() => setEditingExp(null)}>Cancel</Button>
+                        <Button onClick={handleSave}>Save Experience</Button>
                     </div>
-                ))}
-                <Button variant="outline" size="sm" onClick={() => setEditingExp({...editingExp, responsibilities: [...editingExp.responsibilities, '']})}>Add Responsibility</Button>
-                <div className="flex justify-end gap-2 pt-4">
-                    <Button variant="ghost" onClick={() => setEditingExp(null)}>Cancel</Button>
-                    <Button onClick={handleSave}>Save Experience</Button>
                 </div>
-            </div>
+            </Card>
         )
     }
 
     return (
-        <div className="space-y-6">
-            <div>
-                <h1 className="text-3xl font-bold">Tell us about your work experience</h1>
-                <p className="text-muted-foreground mt-1">Start with your most recent job.</p>
+        <Card className="p-8">
+            <div className="space-y-6">
+                <div>
+                    <h1 className="text-3xl font-bold">Tell us about your work experience</h1>
+                    <p className="text-muted-foreground mt-1">Start with your most recent job.</p>
+                </div>
+                {resume.experience.map(exp => (
+                    <Card key={exp.id} className="p-4 flex justify-between items-center bg-muted/40">
+                        <div>
+                            <p className="font-bold">{exp.title}</p>
+                            <p className="text-sm text-muted-foreground">{exp.company}</p>
+                        </div>
+                        <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setEditingExp(exp)}>Edit</Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleRemove(exp.id)}><Trash2 className="h-4 w-4 text-destructive"/></Button>
+                        </div>
+                    </Card>
+                ))}
+                <Button onClick={startNew} className="w-full" size="lg"><Plus className="mr-2 h-4 w-4" /> Add Experience</Button>
             </div>
-            {resume.experience.map(exp => (
-                <Card key={exp.id} className="p-4 flex justify-between items-center">
-                    <div>
-                        <p className="font-bold">{exp.title}</p>
-                        <p className="text-sm text-muted-foreground">{exp.company}</p>
-                    </div>
-                    <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setEditingExp(exp)}>Edit</Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleRemove(exp.id)}><Trash2 className="h-4 w-4 text-destructive"/></Button>
-                    </div>
-                </Card>
-            ))}
-            <Button onClick={startNew} className="w-full" size="lg"><Plus className="mr-2 h-4 w-4" /> Add Experience</Button>
-        </div>
+        </Card>
     );
 };
 
@@ -421,40 +356,44 @@ const EducationStep = ({ resume, onUpdate }: { resume: ResumeDataWithIds, onUpda
 
     if (editingEdu) {
         return (
-            <div className="space-y-4">
-                <h2 className="text-2xl font-bold">{resume.education.find(e => e.id === editingEdu.id) ? 'Edit Education' : 'Add New Education'}</h2>
-                <Input placeholder="Degree / Certificate" value={editingEdu.degree} onChange={e => setEditingEdu({...editingEdu, degree: e.target.value})} />
-                <Input placeholder="School / Institution" value={editingEdu.school} onChange={e => setEditingEdu({...editingEdu, school: e.target.value})} />
-                <Input placeholder="Location" value={editingEdu.location} onChange={e => setEditingEdu({...editingEdu, location: e.target.value})} />
-                <Input placeholder="Dates (e.g., Aug 2016 - May 2020)" value={editingEdu.dates} onChange={e => setEditingEdu({...editingEdu, dates: e.target.value})} />
-                <div className="flex justify-end gap-2 pt-4">
-                    <Button variant="ghost" onClick={() => setEditingEdu(null)}>Cancel</Button>
-                    <Button onClick={handleSave}>Save Education</Button>
+             <Card className="p-8">
+                <h2 className="text-2xl font-bold mb-6">{resume.education.find(e => e.id === editingEdu.id) ? 'Edit Education' : 'Add New Education'}</h2>
+                <div className="space-y-4">
+                    <Input placeholder="Degree / Certificate" value={editingEdu.degree} onChange={e => setEditingEdu({...editingEdu, degree: e.target.value})} />
+                    <Input placeholder="School / Institution" value={editingEdu.school} onChange={e => setEditingEdu({...editingEdu, school: e.target.value})} />
+                    <Input placeholder="Location" value={editingEdu.location} onChange={e => setEditingEdu({...editingEdu, location: e.target.value})} />
+                    <Input placeholder="Dates (e.g., Aug 2016 - May 2020)" value={editingEdu.dates} onChange={e => setEditingEdu({...editingEdu, dates: e.target.value})} />
+                    <div className="flex justify-end gap-2 pt-4">
+                        <Button variant="ghost" onClick={() => setEditingEdu(null)}>Cancel</Button>
+                        <Button onClick={handleSave}>Save Education</Button>
+                    </div>
                 </div>
-            </div>
+            </Card>
         )
     }
 
     return (
-        <div className="space-y-6">
-            <div>
-                <h1 className="text-3xl font-bold">What is your educational background?</h1>
-                <p className="text-muted-foreground mt-1">Include all relevant degrees and certifications.</p>
+        <Card className="p-8">
+            <div className="space-y-6">
+                <div>
+                    <h1 className="text-3xl font-bold">What is your educational background?</h1>
+                    <p className="text-muted-foreground mt-1">Include all relevant degrees and certifications.</p>
+                </div>
+                {resume.education.map(edu => (
+                    <Card key={edu.id} className="p-4 flex justify-between items-center bg-muted/40">
+                        <div>
+                            <p className="font-bold">{edu.degree}</p>
+                            <p className="text-sm text-muted-foreground">{edu.school}</p>
+                        </div>
+                        <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setEditingEdu(edu)}>Edit</Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleRemove(edu.id)}><Trash2 className="h-4 w-4 text-destructive"/></Button>
+                        </div>
+                    </Card>
+                ))}
+                <Button onClick={startNew} className="w-full" size="lg"><Plus className="mr-2 h-4 w-4" /> Add Education</Button>
             </div>
-            {resume.education.map(edu => (
-                <Card key={edu.id} className="p-4 flex justify-between items-center">
-                    <div>
-                        <p className="font-bold">{edu.degree}</p>
-                        <p className="text-sm text-muted-foreground">{edu.school}</p>
-                    </div>
-                    <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setEditingEdu(edu)}>Edit</Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleRemove(edu.id)}><Trash2 className="h-4 w-4 text-destructive"/></Button>
-                    </div>
-                </Card>
-            ))}
-            <Button onClick={startNew} className="w-full" size="lg"><Plus className="mr-2 h-4 w-4" /> Add Education</Button>
-        </div>
+        </Card>
     );
 };
 
@@ -468,7 +407,6 @@ const SkillsStep = ({ resume, onUpdate }: { resume: ResumeDataWithIds, onUpdate:
             });
             setCurrentSkill('');
         } else {
-            // Clear input even if skill is duplicate or empty, to avoid confusion
             setCurrentSkill('');
         }
     };
@@ -487,57 +425,61 @@ const SkillsStep = ({ resume, onUpdate }: { resume: ResumeDataWithIds, onUpdate:
     };
 
     return (
-        <div className="space-y-6">
-            <div>
-                <h1 className="text-3xl font-bold">Highlight your key skills</h1>
-                <p className="text-muted-foreground mt-1">Add your most important skills one by one. Press Enter or click "Add" to add a skill.</p>
+        <Card className="p-8">
+            <div className="space-y-6">
+                <div>
+                    <h1 className="text-3xl font-bold">Highlight your key skills</h1>
+                    <p className="text-muted-foreground mt-1">Add your most important skills one by one. Press Enter or click "Add" to add a skill.</p>
+                </div>
+                <div className="flex gap-2">
+                    <Input
+                        placeholder="e.g. React"
+                        value={currentSkill}
+                        onChange={(e) => setCurrentSkill(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        aria-label="Add a new skill"
+                    />
+                    <Button onClick={handleAddSkill}>Add Skill</Button>
+                </div>
+                <Card className="p-4 bg-muted/40 min-h-[150px]">
+                    <CardContent className="p-0">
+                        <div className="flex flex-wrap gap-2">
+                            {resume.skills.length === 0 ? (
+                                <p className="text-sm text-muted-foreground w-full text-center py-10">No skills added yet.</p>
+                            ) : (
+                                resume.skills.map(skill => (
+                                    <Badge key={skill} variant="secondary" className="text-base py-1 px-3 flex items-center gap-2">
+                                        {skill}
+                                        <button onClick={() => handleRemoveSkill(skill)} className="rounded-full hover:bg-muted-foreground/20 p-0.5" aria-label={`Remove ${skill}`}>
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </Badge>
+                                ))
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
-            <div className="flex gap-2">
-                <Input
-                    placeholder="e.g. React"
-                    value={currentSkill}
-                    onChange={(e) => setCurrentSkill(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    aria-label="Add a new skill"
-                />
-                <Button onClick={handleAddSkill}>Add Skill</Button>
-            </div>
-            <Card className="p-4 bg-muted/40 min-h-[150px]">
-                <CardContent className="p-0">
-                    <div className="flex flex-wrap gap-2">
-                        {resume.skills.length === 0 ? (
-                            <p className="text-sm text-muted-foreground w-full text-center py-10">No skills added yet.</p>
-                        ) : (
-                            resume.skills.map(skill => (
-                                <Badge key={skill} variant="secondary" className="text-base py-1 px-3 flex items-center gap-2">
-                                    {skill}
-                                    <button onClick={() => handleRemoveSkill(skill)} className="rounded-full hover:bg-muted-foreground/20 p-0.5" aria-label={`Remove ${skill}`}>
-                                        <X className="h-3 w-3" />
-                                    </button>
-                                </Badge>
-                            ))
-                        )}
-                    </div>
-                </CardContent>
-            </Card>
-        </div>
+        </Card>
     );
 };
 
 const SummaryStep = ({ resume, onUpdate }: { resume: ResumeDataWithIds, onUpdate: (fn: (d: ResumeDataWithIds) => void) => void }) => {
     return (
-        <div className="space-y-6">
-            <div>
-                <h1 className="text-3xl font-bold">Write a professional summary</h1>
-                <p className="text-muted-foreground mt-1">Briefly introduce yourself and highlight your top qualifications. This is your elevator pitch!</p>
+        <Card className="p-8">
+            <div className="space-y-6">
+                <div>
+                    <h1 className="text-3xl font-bold">Write a professional summary</h1>
+                    <p className="text-muted-foreground mt-1">Briefly introduce yourself and highlight your top qualifications. This is your elevator pitch!</p>
+                </div>
+                <Textarea 
+                    placeholder="e.g. Highly motivated Software Engineer with 5+ years of experience in building and scaling web applications..."
+                    value={resume.summary}
+                    onChange={(e) => onUpdate(d => { d.summary = e.target.value })}
+                    rows={8}
+                />
             </div>
-            <Textarea 
-                placeholder="e.g. Highly motivated Software Engineer with 5+ years of experience in building and scaling web applications..."
-                value={resume.summary}
-                onChange={(e) => onUpdate(d => { d.summary = e.target.value })}
-                rows={8}
-            />
-        </div>
+        </Card>
     );
 };
 
@@ -568,58 +510,120 @@ const CustomSectionsStep = ({ resume, onUpdate }: { resume: ResumeDataWithIds, o
 
     if (editingSection) {
         return (
-            <div className="space-y-4">
-                <h2 className="text-2xl font-bold">{resume.customSections?.find(s => s.id === editingSection.id) ? 'Edit Section' : 'Add New Section'}</h2>
-                <Input
-                    placeholder="Section Title (e.g., Certifications, Languages)"
-                    value={editingSection.title}
-                    onChange={e => setEditingSection({ ...editingSection, title: e.target.value })}
-                />
-                <Textarea
-                    placeholder="Content for this section..."
-                    value={editingSection.content}
-                    onChange={e => setEditingSection({ ...editingSection, content: e.target.value })}
-                    rows={6}
-                />
-                <div className="flex justify-end gap-2 pt-4">
-                    <Button variant="ghost" onClick={() => setEditingSection(null)}>Cancel</Button>
-                    <Button onClick={handleSave}>Save Section</Button>
+            <Card className="p-8">
+                <h2 className="text-2xl font-bold mb-6">{resume.customSections?.find(s => s.id === editingSection.id) ? 'Edit Section' : 'Add New Section'}</h2>
+                <div className="space-y-4">
+                    <Input
+                        placeholder="Section Title (e.g., Certifications, Languages)"
+                        value={editingSection.title}
+                        onChange={e => setEditingSection({ ...editingSection, title: e.target.value })}
+                    />
+                    <Textarea
+                        placeholder="Content for this section..."
+                        value={editingSection.content}
+                        onChange={e => setEditingSection({ ...editingSection, content: e.target.value })}
+                        rows={6}
+                    />
+                    <div className="flex justify-end gap-2 pt-4">
+                        <Button variant="ghost" onClick={() => setEditingSection(null)}>Cancel</Button>
+                        <Button onClick={handleSave}>Save Section</Button>
+                    </div>
                 </div>
-            </div>
+            </Card>
         )
     }
 
     return (
-        <div className="space-y-6">
-            <div>
-                <h1 className="text-3xl font-bold">Have anything else to add?</h1>
-                <p className="text-muted-foreground mt-1">Add custom sections like certifications, languages, or publications.</p>
+        <Card className="p-8">
+            <div className="space-y-6">
+                <div>
+                    <h1 className="text-3xl font-bold">Have anything else to add?</h1>
+                    <p className="text-muted-foreground mt-1">Add custom sections like certifications, languages, or publications.</p>
+                </div>
+                {(resume.customSections || []).map(sec => (
+                    <Card key={sec.id} className="p-4 flex justify-between items-center bg-muted/40">
+                        <div>
+                            <p className="font-bold">{sec.title}</p>
+                            <p className="text-sm text-muted-foreground truncate max-w-xs">{sec.content}</p>
+                        </div>
+                        <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setEditingSection(sec)}>Edit</Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleRemove(sec.id)}><Trash2 className="h-4 w-4 text-destructive"/></Button>
+                        </div>
+                    </Card>
+                ))}
+                <Button onClick={startNew} className="w-full" size="lg"><Plus className="mr-2 h-4 w-4" /> Add Custom Section</Button>
             </div>
-            {(resume.customSections || []).map(sec => (
-                <Card key={sec.id} className="p-4 flex justify-between items-center">
-                    <div>
-                        <p className="font-bold">{sec.title}</p>
-                        <p className="text-sm text-muted-foreground truncate max-w-xs">{sec.content}</p>
-                    </div>
-                    <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setEditingSection(sec)}>Edit</Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleRemove(sec.id)}><Trash2 className="h-4 w-4 text-destructive"/></Button>
-                    </div>
-                </Card>
-            ))}
-            <Button onClick={startNew} className="w-full" size="lg"><Plus className="mr-2 h-4 w-4" /> Add Custom Section</Button>
-        </div>
+        </Card>
     );
 };
 
-const FinalizeStep = () => {
+const FinalizeStep = ({ resume, selectedTemplate, setSelectedTemplate, selectedColor, setSelectedColor }: {
+    resume: ResumeDataWithIds;
+    selectedTemplate: string;
+    setSelectedTemplate: (t: string) => void;
+    selectedColor: string;
+    setSelectedColor: (c: string) => void;
+}) => {
     return (
-        <div className="text-center h-full flex flex-col justify-center items-center">
-            <div className="bg-green-100 p-6 rounded-full mb-6">
-                <Check className="h-12 w-12 text-green-600" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full">
+            <div className="flex flex-col gap-4">
+                <h1 className="text-3xl font-bold">Choose your style</h1>
+                <p className="text-muted-foreground -mt-2">Your resume is complete! Pick a template and color to make it stand out. This will be applied in the editor.</p>
+                <Card className="flex-1 shadow-lg">
+                    <div className="aspect-[8.5/11] w-full bg-white rounded-md shadow-inner overflow-hidden border">
+                       <ResumePreview 
+                           resumeData={resume} 
+                           templateName={selectedTemplate}
+                           className="scale-[0.9] origin-top"
+                           style={{'--theme-color': selectedColor} as React.CSSProperties}
+                       />
+                    </div>
+                </Card>
             </div>
-            <h1 className="text-3xl font-bold">Your resume is ready!</h1>
-            <p className="text-muted-foreground mt-2 max-w-md">You've successfully built your resume. Click the button below to proceed to the editor for final touches, AI enhancements, and downloading.</p>
+            <div className="flex flex-col gap-4">
+                <Card className="p-4">
+                    <h3 className="font-semibold mb-3">Color Scheme</h3>
+                    <div className="flex items-center gap-3">
+                        {COLORS.map((color) => (
+                            <button
+                                key={color.name}
+                                onClick={() => setSelectedColor(color.value)}
+                                className={cn(
+                                    "h-8 w-8 rounded-full border-2 border-border transition-all focus:outline-none",
+                                    selectedColor === color.value && `ring-2 ring-offset-2 ${color.ring}`
+                                )}
+                                style={{ backgroundColor: color.value }}
+                                title={color.name}
+                            />
+                        ))}
+                    </div>
+                </Card>
+                <Card className="flex-1">
+                    <CardHeader>
+                        <CardTitle>Select a Template</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <ScrollArea className="h-[calc(100vh-320px)] pr-4 -mr-4">
+                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {TEMPLATES.map((template) => (
+                                    <div key={template.id} className="group cursor-pointer" onClick={() => setSelectedTemplate(template.id)}>
+                                        <Card className={cn(
+                                            "relative w-full overflow-hidden border-2 rounded-lg transition-all duration-300",
+                                            selectedTemplate === template.id ? 'border-primary shadow-lg' : 'border-border hover:border-primary/50'
+                                        )}>
+                                            <div className="aspect-[8.5/11] bg-white">
+                                                <ResumePreview resumeData={DUMMY_RESUME_DATA} templateName={template.id} className="scale-[0.35] origin-top" />
+                                            </div>
+                                        </Card>
+                                        <h4 className="text-center font-semibold mt-2 text-sm">{template.name}</h4>
+                                    </div>
+                                ))}
+                            </div>
+                        </ScrollArea>
+                    </CardContent>
+                </Card>
+            </div>
         </div>
     );
 };
