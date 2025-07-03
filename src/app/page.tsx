@@ -71,6 +71,10 @@ export default function Home() {
     setStep("EDIT");
   };
 
+  const handleBackToWizard = () => {
+    setStep("WIZARD");
+  };
+
   if (step === "WIZARD" && resumeData) {
     return <ResumeWizard 
       initialResumeData={resumeData} 
@@ -80,7 +84,7 @@ export default function Home() {
   }
 
   if (step === "EDIT" && resumeData) {
-    return <ResumeEditor initialResumeData={resumeData} onBack={handleBackToChoice} />;
+    return <ResumeEditor initialResumeData={resumeData} onBack={handleBackToWizard} />;
   }
   
   if (step === "UPLOAD") {
