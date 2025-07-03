@@ -577,7 +577,6 @@ const FinalizeStep = ({ resume, selectedTemplate, setSelectedTemplate, selectedC
                            key={`${selectedTemplate}-${selectedColor}`}
                            resumeData={resume} 
                            templateName={selectedTemplate}
-                           className="scale-[0.9] origin-top"
                            style={{'--theme-color': selectedColor} as React.CSSProperties}
                        />
                     </div>
@@ -614,15 +613,15 @@ const FinalizeStep = ({ resume, selectedTemplate, setSelectedTemplate, selectedC
                                             "relative w-full overflow-hidden border-2 rounded-lg transition-all duration-300",
                                             selectedTemplate === template.id ? 'border-primary shadow-lg' : 'border-border hover:border-primary/50'
                                         )}>
-                                            <div className="aspect-[8.5/11] bg-white overflow-hidden">
-                                                <div className="origin-top-left scale-[0.3] sm:scale-[0.35] md:scale-[0.3]">
-                                                    <ResumePreview 
-                                                        resumeData={DUMMY_RESUME_DATA} 
-                                                        templateName={template.id} 
-                                                        className="w-[8.5in] h-[11in] bg-white" 
-                                                        style={{'--theme-color': selectedColor} as React.CSSProperties}
-                                                    />
-                                                </div>
+                                            <div className="aspect-[8.5/11] bg-white">
+                                                <Image
+                                                    src={template.imageUrl}
+                                                    alt={template.name}
+                                                    width={400}
+                                                    height={566}
+                                                    className="w-full h-full object-cover"
+                                                    data-ai-hint={template.hint}
+                                                />
                                             </div>
                                         </Card>
                                         <h4 className="text-center font-semibold mt-2 text-sm">{template.name}</h4>
