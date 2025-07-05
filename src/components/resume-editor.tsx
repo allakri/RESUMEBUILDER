@@ -395,7 +395,7 @@ export function ResumeEditor({ initialResumeData, onBack, template: initialTempl
     setIsDownloading(true);
     toast({ title: 'Generating High-Quality PDF...', description: 'This may take a moment.' });
     try {
-      const blob = await generatePdfBlob(previewRef.current);
+      const blob = await generatePdfBlob(resume, template, themeColor, FONT_PAIRS[fontPair]);
       saveAs(blob, `${[resume.firstName, resume.lastName].join('_') || 'resume'}_${template}.pdf`);
     } catch (error) {
         console.error("PDF Download failed:", error);
@@ -756,8 +756,17 @@ export function ResumeEditor({ initialResumeData, onBack, template: initialTempl
             </div>
             <div className="flex-1 overflow-auto p-4 md:p-8">
                 <div 
-                    className="mx-auto resume-preview-container aspect-[8.27/11.69]"
-                    style={{ width: '8.27in', maxWidth: '100%' }}
+                    className="mx-auto resume-preview-container"
+                    style={{ 
+                        width: '8.27in', 
+                        height: '11.69in', 
+                        maxWidth: '100%',
+                        maxHeight: 'calc(100vh - 200px)', /* Example height constraint */
+                        overflow: 'hidden',
+                        transformOrigin: 'top center',
+                        transform: 'scale(0.8)', /* Example scale */
+                        margin: '0 auto',
+                    }}
                 >
                     <ResumePreview
                         ref={previewRef}
@@ -766,7 +775,7 @@ export function ResumeEditor({ initialResumeData, onBack, template: initialTempl
                         isEditable={true}
                         onEdit={handleEdit}
                         onRemove={removeItem}
-                        className="w-full h-full bg-white shadow-lg overflow-hidden"
+                        className="w-full h-full bg-white shadow-lg"
                         style={{
                             "--theme-color": themeColor,
                             "--font-family-body": FONT_PAIRS[fontPair].body,
@@ -866,5 +875,7 @@ const CustomTextarea = React.forwardRef<HTMLTextAreaElement, {label?: string} & 
     )
 });
 CustomTextarea.displayName = "Textarea";
+
+    
 
     

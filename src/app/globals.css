@@ -200,34 +200,40 @@
   body {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+    background-color: #fff;
+    min-height: 100%;
   }
   .no-print {
     display: none !important;
   }
-  .resume-editor-main, .dialog-content-parent {
+  .resume-editor-main, .dialog-content-parent, body {
     padding: 0 !important;
     margin: 0 !important;
     box-shadow: none !important;
     border: none !important;
     background: white !important;
+    overflow: visible !important;
   }
   .resume-preview-container {
     width: 100% !important;
     max-width: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
+    height: auto !important;
     box-shadow: none !important;
     border: none !important;
-    aspect-ratio: auto !important;
-    height: auto !important;
+    transform: scale(1) !important;
+    transform-origin: top left !important;
   }
   .preview-content-wrapper {
      box-shadow: none !important;
      border: none !important;
      display: block !important;
+     height: auto !important;
+     width: 100% !important;
      page-break-after: always;
   }
   section, .entry, header {
     page-break-inside: avoid;
   }
 }
+
+    
