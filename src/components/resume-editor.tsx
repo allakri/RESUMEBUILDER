@@ -28,9 +28,7 @@ import {
   PanelRightClose,
 } from "lucide-react";
 import { saveAs } from "file-saver";
-import { AlignmentType, BorderStyle, Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+import { Packer } from "docx";
 import type { ResumeData, ResumeDataWithIds } from "@/ai/resume-schema";
 import { enhanceResumeWithReference, type AIFeedbackData, type EnhanceResumeWithReferenceOutput } from "@/ai/flows/enhance-resume-with-reference";
 import { chatEnhanceResume } from "@/ai/flows/chat-enhance-resume";
@@ -67,6 +65,9 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
 import { Badge } from "./ui/badge";
 import { cn } from "@/lib/utils";
+import { generateDocxBlob } from "@/lib/docx-generator";
+import { generatePdfBlob } from "@/lib/pdf-generator";
+
 
 interface ResumeEditorProps {
   initialResumeData: ResumeDataWithIds;
@@ -390,53 +391,12 @@ export function ResumeEditor({ initialResumeData, onBack, template: initialTempl
     }
   };
 
- const handleDownloadPdf = async () => {
+  const handleDownloadPdf = async () => {
     setIsDownloading(true);
     toast({ title: 'Generating High-Quality PDF...', description: 'This may take a moment.' });
-
-    const elementToCapture = previewRef.current;
-    if (!elementToCapture) {
-        toast({ variant: "destructive", title: "Preview Not Found" });
-        setIsDownloading(false);
-        return;
-    }
-
     try {
-        // More reliable font loading
-        await document.fonts.ready;
-
-        const canvas = await html2canvas(elementToCapture, {
-            scale: 3, // High resolution capture
-            useCORS: true,
-            logging: false,
-            // Let html2canvas determine dimensions from the element's scroll properties
-            windowWidth: elementToCapture.scrollWidth,
-            windowHeight: elementToCapture.scrollHeight,
-        });
-
-        const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
-
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        const canvasAspectRatio = canvas.height / canvas.width;
-        const imgHeight = pdfWidth * canvasAspectRatio;
-
-        let heightLeft = imgHeight;
-        let position = 0;
-
-        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-        heightLeft -= pdfHeight;
-
-        // Loop to add new pages if content is longer than one A4 page
-        while (heightLeft > 0) {
-            position -= pdfHeight;
-            pdf.addPage();
-            pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-            heightLeft -= pdfHeight;
-        }
-
-        pdf.save(`${[resume.firstName, resume.lastName].join('_') || 'resume'}_${template}.pdf`);
+      const blob = await generatePdfBlob(previewRef.current);
+      saveAs(blob, `${[resume.firstName, resume.lastName].join('_') || 'resume'}_${template}.pdf`);
     } catch (error) {
         console.error("PDF Download failed:", error);
         toast({ variant: "destructive", title: "Download Failed", description: "Could not generate PDF. Please try again." });
@@ -449,115 +409,9 @@ export function ResumeEditor({ initialResumeData, onBack, template: initialTempl
   const handleDownloadDocx = async () => {
     setIsDownloading(true);
     toast({ title: 'Generating DOCX...', description: 'Creating an ATS-friendly document.' });
-
     try {
-        const children: (Paragraph | TextRun)[] = [
-            new Paragraph({
-                text: `${resume.firstName} ${resume.lastName}`,
-                heading: HeadingLevel.TITLE,
-                alignment: AlignmentType.CENTER,
-            }),
-            new Paragraph({
-                alignment: AlignmentType.CENTER,
-                text: [resume.profession, resume.email, resume.phone, resume.location, resume.pinCode].filter(Boolean).join(" | "),
-            }),
-            new Paragraph({
-                alignment: AlignmentType.CENTER,
-                text: [resume.linkedIn, ...(resume.websites || []).map(w => w.url)].filter(Boolean).join(" | "),
-            }),
-            new Paragraph({ text: "" }),
-        ];
-
-        const addSection = (title: string, content: (Paragraph | TextRun)[]) => {
-            if (content.length > 0) {
-                children.push(new Paragraph({ text: title, heading: HeadingLevel.HEADING_1 }));
-                children.push(...content);
-            }
-        };
-
-        if (resume.summary) {
-            addSection("Summary", [new Paragraph({ text: resume.summary })]);
-        }
-
-        if (resume.experience.length > 0) {
-            const expContent = resume.experience.flatMap(exp => [
-                new Paragraph({
-                    children: [new TextRun({ text: exp.title, bold: true }), new TextRun({ text: ` at ${exp.company}` })],
-                }),
-                new Paragraph({
-                    children: [new TextRun({ text: exp.location, italics: true }), new TextRun({ text: ` | ${exp.dates}`, italics: true })],
-                }),
-                ...exp.responsibilities.map(resp => new Paragraph({ text: resp, bullet: { level: 0 } })),
-                new Paragraph({ text: "" }),
-            ]);
-            addSection("Experience", expContent);
-        }
-
-        if (resume.projects && resume.projects.length > 0) {
-            const projContent = resume.projects.flatMap(proj => [
-                new Paragraph({ children: [
-                    new TextRun({ text: proj.name, bold: true }),
-                    ...(proj.url ? [new TextRun({ text: ` | ${proj.url}` })] : [])
-                ]}),
-                new Paragraph({ text: proj.description }),
-                new Paragraph({ children: [
-                    new TextRun({ text: "Technologies: ", bold: true, italics: true }),
-                    new TextRun({text: proj.technologies.join(", ")})
-                ]}),
-                new Paragraph({ text: "" }),
-            ]);
-            addSection("Projects", projContent);
-        }
-
-        if (resume.education.length > 0) {
-            const eduContent = resume.education.flatMap(edu => [
-                 new Paragraph({
-                    children: [new TextRun({ text: edu.degree, bold: true }), new TextRun({ text: ` at ${edu.school}` })],
-                }),
-                new Paragraph({
-                    children: [new TextRun({ text: edu.location, italics: true }), new TextRun({ text: ` | ${edu.dates}`, italics: true })],
-                }),
-                 new Paragraph({ text: "" }),
-            ]);
-            addSection("Education", eduContent);
-        }
-
-        if (resume.skills.length > 0) {
-            addSection("Skills", [new Paragraph({ text: resume.skills.join(' • ') })]);
-        }
-
-        if (resume.achievements && resume.achievements.length > 0) {
-            addSection("Achievements", resume.achievements.map(ach => new Paragraph({ text: ach, bullet: { level: 0 } })));
-        }
-
-        if (resume.customSections && resume.customSections.length > 0) {
-            resume.customSections.forEach(sec => {
-                addSection(sec.title, [new Paragraph({ text: sec.content })]);
-            });
-        }
-
-        if (resume.hobbies && resume.hobbies.length > 0) {
-            addSection("Hobbies & Interests", [new Paragraph({ text: resume.hobbies.join(', ') })]);
-        }
-
-        const doc = new Document({
-            creator: "ResumeRevamp",
-            title: `Resume for ${resume.firstName} ${resume.lastName}`,
-            styles: {
-                default: {
-                    heading1: { run: { font: "Times New Roman", size: 28, bold: true }, paragraph: { spacing: { after: 120, before: 240 }, border: { bottom: { color: "auto", size: 6, style: BorderStyle.SINGLE } } } },
-                    title: { run: { font: "Times New Roman", size: 44, bold: true }, paragraph: { alignment: AlignmentType.CENTER, spacing: { after: 120 } } },
-                },
-                paragraph: {
-                    run: { font: "Times New Roman", size: 22 }, // 11pt
-                    paragraph: { spacing: { after: 100 } },
-                },
-            },
-            sections: [{ children }],
-        });
-
-        const blob = await Packer.toBlob(doc);
-        saveAs(blob, `${[resume.firstName, resume.lastName].join('_') || 'resume'}_resume.docx`);
+      const blob = await generateDocxBlob(resume);
+      saveAs(blob, `${[resume.firstName, resume.lastName].join('_') || 'resume'}_resume.docx`);
     } catch (error) {
       console.error("DOCX Download failed:", error);
       toast({ variant: "destructive", title: "Download Failed", description: "Error generating DOCX." });
@@ -748,7 +602,6 @@ export function ResumeEditor({ initialResumeData, onBack, template: initialTempl
                 <div className={cn("flex items-center gap-1", !isSidebarOpen && "hidden")}>
                     <Button onClick={undo} disabled={!canUndo || editorDisabled} variant="ghost" size="icon" aria-label="Undo"><Undo className="h-4 w-4" /></Button>
                     <Button onClick={redo} disabled={!canRedo || editorDisabled} variant="ghost" size="icon" aria-label="Redo"><Redo className="h-4 w-4" /></Button>
-                    <Button onClick={() => setIsPreviewOpen(true)} variant="ghost" size="icon" aria-label="Preview"><Eye className="h-4 w-4"/></Button>
                 </div>
             </div>
             
@@ -841,47 +694,65 @@ export function ResumeEditor({ initialResumeData, onBack, template: initialTempl
         
         {/* Main Content: Interactive Preview */}
         <main className="flex-1 bg-muted/20 flex flex-col overflow-hidden resume-editor-main">
-             <div className="p-4 border-b border-border bg-background flex-wrap flex items-center justify-center gap-4">
-                 <div className="space-y-1">
-                     <label className="text-xs font-medium">Template</label>
-                     <Select value={template} onValueChange={setTemplate}>
-                         <SelectTrigger className="w-40 h-9"><SelectValue /></SelectTrigger>
-                         <SelectContent>
-                             <SelectItem value="professional">Professional</SelectItem>
-                             <SelectItem value="modern">Modern</SelectItem>
-                             <SelectItem value="classic">Classic</SelectItem>
-                             <SelectItem value="executive">Executive</SelectItem>
-                             <SelectItem value="minimalist">Minimalist</SelectItem>
-                             <SelectItem value="creative">Creative</SelectItem>
-                             <SelectItem value="academic">Academic</SelectItem>
-                             <SelectItem value="technical">Technical</SelectItem>
-                             <SelectItem value="elegant">Elegant</SelectItem>
-                             <SelectItem value="compact">Compact</SelectItem>
-                         </SelectContent>
-                     </Select>
+            <div className="p-4 border-b border-border bg-background flex-wrap flex items-center justify-between gap-4">
+                {/* Left side: Styling controls */}
+                <div className="flex items-center gap-4 flex-wrap">
+                    <div className="space-y-1">
+                         <label className="text-xs font-medium">Template</label>
+                         <Select value={template} onValueChange={setTemplate}>
+                             <SelectTrigger className="w-40 h-9"><SelectValue /></SelectTrigger>
+                             <SelectContent>
+                                 <SelectItem value="professional">Professional</SelectItem>
+                                 <SelectItem value="modern">Modern</SelectItem>
+                                 <SelectItem value="classic">Classic</SelectItem>
+                                 <SelectItem value="executive">Executive</SelectItem>
+                                 <SelectItem value="minimalist">Minimalist</SelectItem>
+                                 <SelectItem value="creative">Creative</SelectItem>
+                                 <SelectItem value="academic">Academic</SelectItem>
+                                 <SelectItem value="technical">Technical</SelectItem>
+                                 <SelectItem value="elegant">Elegant</SelectItem>
+                                 <SelectItem value="compact">Compact</SelectItem>
+                             </SelectContent>
+                         </Select>
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-xs font-medium">Fonts</label>
+                        <Select value={fontPair} onValueChange={(v) => setFontPair(v as keyof typeof FONT_PAIRS)}>
+                            <SelectTrigger className="w-40 h-9"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="sans">Modern Sans</SelectItem>
+                                <SelectItem value="serif">Classic Serif</SelectItem>
+                                <SelectItem value="modern">Futuristic</SelectItem>
+                                <SelectItem value="mono">Technical</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                     <div className="space-y-1">
+                        <label htmlFor="theme-color-picker" className="text-xs font-medium flex items-center gap-2">Theme Color</label>
+                        <Input id="theme-color-picker" type="color" value={themeColor} onChange={(e) => setThemeColor(e.target.value)} className="w-24 h-9 p-1"/>
+                    </div>
                 </div>
-                <div className="space-y-1">
-                    <label className="text-xs font-medium">Fonts</label>
-                    <Select value={fontPair} onValueChange={(v) => setFontPair(v as keyof typeof FONT_PAIRS)}>
-                        <SelectTrigger className="w-40 h-9"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="sans">Modern Sans</SelectItem>
-                            <SelectItem value="serif">Classic Serif</SelectItem>
-                            <SelectItem value="modern">Futuristic</SelectItem>
-                            <SelectItem value="mono">Technical</SelectItem>
-                        </SelectContent>
-                    </Select>
+                
+                {/* Right side: Action buttons */}
+                <div className="flex items-center gap-2">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline"><PlusSquare className="h-4 w-4" /><span className="ml-2">Add Section</span></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                            <DropdownMenuItem onClick={() => handleEdit({type: 'new_experience'})}>Experience</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEdit({type: 'new_education'})}>Education</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEdit({type: 'new_project'})}>Project</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEdit({type: 'new_website'})}>Website/Link</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEdit({type: 'new_customSection'})}>Custom Section</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <Button variant="outline" onClick={() => setIsPreviewOpen(true)}>
+                        <Eye className="h-4 w-4" />
+                        <span className="ml-2">Preview & Download</span>
+                    </Button>
                 </div>
-                 <div className="space-y-1">
-                    <label htmlFor="theme-color-picker" className="text-xs font-medium flex items-center gap-2">Theme Color</label>
-                    <Input id="theme-color-picker" type="color" value={themeColor} onChange={(e) => setThemeColor(e.target.value)} className="w-24 h-9 p-1"/>
-                </div>
-                 <div className="flex items-end h-full">
-                    <Button variant="outline" onClick={() => handleEdit({type: 'new_education'})}>Add Education</Button>
-                 </div>
-                 <div className="flex items-end h-full">
-                    <Button variant="outline" onClick={() => handleEdit({type: 'new_customSection'})}>Add Section</Button>
-                 </div>
             </div>
             <div className="flex-1 overflow-auto p-4 md:p-8">
                 <div 
@@ -995,3 +866,5 @@ const CustomTextarea = React.forwardRef<HTMLTextAreaElement, {label?: string} & 
     )
 });
 CustomTextarea.displayName = "Textarea";
+
+    
