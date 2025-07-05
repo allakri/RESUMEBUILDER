@@ -198,25 +198,36 @@
 
 @media print {
   body {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
   .no-print {
     display: none !important;
   }
-  .resume-editor-main {
-    padding: 0;
+  .resume-editor-main, .dialog-content-parent {
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: white !important;
   }
   .resume-preview-container {
-    box-shadow: none;
-    margin: 0;
-    width: 100%;
-    max-width: 100%;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    aspect-ratio: auto !important;
+    height: auto !important;
   }
   .preview-content-wrapper {
-    page-break-after: always;
+     box-shadow: none !important;
+     border: none !important;
+     display: block !important;
+     page-break-after: always;
   }
-  section {
+  section, .entry, header {
     page-break-inside: avoid;
   }
 }
