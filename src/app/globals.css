@@ -98,7 +98,7 @@
   .template-base .entry { @apply mb-3; }
   .template-base h3, .template-base .title { font-family: var(--font-family-headline); @apply text-base font-semibold; }
   .template-base .responsibilities { @apply list-disc pl-5 mt-1 text-sm space-y-1; }
-  .template-base section { @apply mb-4; }
+  .template-base section { @apply mb-4; page-break-inside: avoid; }
   .template-base .dates, .template-base .location { @apply text-xs opacity-70; }
   .template-base .company, .template-base .school { @apply font-medium; }
   .template-base .degree { @apply font-bold; }
@@ -194,4 +194,29 @@
   .template-compact .entry { @apply mb-1; }
   .template-compact .section-title { @apply text-xs font-bold uppercase tracking-wider border-b mb-1 pb-px; border-color: var(--theme-color); color: var(--theme-color); }
   .template-compact .responsibilities { @apply mt-0 text-xs; }
+}
+
+@media print {
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .resume-editor-main {
+    padding: 0;
+  }
+  .resume-preview-container {
+    box-shadow: none;
+    margin: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+  .preview-content-wrapper {
+    page-break-after: always;
+  }
+  section {
+    page-break-inside: avoid;
+  }
 }

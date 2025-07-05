@@ -28,7 +28,7 @@ import {
   PanelRightClose,
 } from "lucide-react";
 import { saveAs } from "file-saver";
-import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
+import { AlignmentType, BorderStyle, Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import type { ResumeData, ResumeDataWithIds } from "@/ai/resume-schema";
@@ -390,10 +390,11 @@ export function ResumeEditor({ initialResumeData, onBack, template: initialTempl
     }
   };
 
-  const handleDownloadPdf = async () => {
+ const handleDownloadPdf = async () => {
     setIsDownloading(true);
-    // The ref points to the main preview component in the editor, not the one in the dialog.
-    const elementToCapture = previewRef.current?.querySelector('.preview-content-wrapper') || previewRef.current;
+    toast({ title: 'Generating High-Quality PDF...', description: 'This may take a moment.' });
+    
+    const elementToCapture = previewRef.current;
 
     if (!elementToCapture) {
         toast({ variant: "destructive", title: "Preview Not Found" });
@@ -402,33 +403,45 @@ export function ResumeEditor({ initialResumeData, onBack, template: initialTempl
     }
 
     try {
-        const canvas = await html2canvas(elementToCapture as HTMLElement, {
-            scale: 4, // Increase scale for higher resolution to fix quality and potential layout issues
-            useCORS: true, 
-            backgroundColor: '#ffffff', // Set a white background for the capture
+        // Ensure fonts are loaded by waiting a bit. A better solution would use the Font Loading API.
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        const canvas = await html2canvas(elementToCapture, {
+            scale: 4, // Increase scale for higher resolution
+            useCORS: true,
+            logging: false,
+            width: elementToCapture.offsetWidth,
+            height: elementToCapture.offsetHeight,
+            windowWidth: elementToCapture.scrollWidth,
+            windowHeight: elementToCapture.scrollHeight,
         });
         
         const imgData = canvas.toDataURL('image/png');
         const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+        
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = pdf.internal.pageSize.getHeight();
         
-        // Calculate the height of the image in the PDF, maintaining aspect ratio
-        const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+        const canvasAspectRatio = canvasHeight / canvasWidth;
+        
+        const imgWidth = pdfWidth;
+        const imgHeight = imgWidth * canvasAspectRatio;
+        
         let heightLeft = imgHeight;
         let position = 0;
 
-        // Add the first page
-        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
         heightLeft -= pdfHeight;
 
-        // Add more pages if the resume is longer than one page
         while (heightLeft > 0) {
             position -= pdfHeight;
             pdf.addPage();
-            pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
             heightLeft -= pdfHeight;
         }
+
         pdf.save(`${[resume.firstName, resume.lastName].join('_') || 'resume'}_${template}.pdf`);
     } catch (error) {
         console.error("PDF Download failed:", error);
@@ -438,54 +451,141 @@ export function ResumeEditor({ initialResumeData, onBack, template: initialTempl
     }
   };
 
+
   const handleDownloadDocx = async () => {
     setIsDownloading(true);
-    const fullName = [resume.firstName, resume.lastName].filter(Boolean).join(" ");
+    toast({ title: 'Generating DOCX...', description: 'Creating an ATS-friendly document.' });
+    
     try {
-        const createTextRuns = (text: string) => text.split('\n').flatMap((line, i) => i > 0 ? [new TextRun({ break: 1 }), new TextRun(line)] : [new TextRun(line)]);
-        const children: Paragraph[] = [
-            new Paragraph({ text: fullName, heading: HeadingLevel.TITLE, alignment: 'center' }),
-            ...(resume.profession ? [new Paragraph({ text: resume.profession, alignment: 'center' })] : []),
-            new Paragraph({ text: [resume.email, resume.phone].filter(Boolean).join(" | "), alignment: 'center' }),
-            ...(resume.websites && resume.websites.length > 0 ? [new Paragraph({ text: resume.websites.map(w => w.url).join(" | "), alignment: 'center' })] : []),
-            new Paragraph(""),
-        ];
+        const doc = new Document({
+            creator: "ResumeRevamp",
+            title: `Resume for ${resume.firstName} ${resume.lastName}`,
+            styles: {
+                paragraph: {
+                    run: { font: "Calibri", size: 22 }, // 11pt
+                    paragraph: { spacing: { after: 100 } }, // 5pt spacing
+                },
+                heading1: {
+                    run: { font: "Calibri", size: 28, bold: true },
+                    paragraph: {
+                        spacing: { after: 120, before: 240 },
+                        border: { bottom: { color: "auto", size: 6, style: BorderStyle.SINGLE } }
+                    },
+                },
+                 title: {
+                    run: { font: "Calibri", size: 44, bold: true },
+                    paragraph: { spacing: { after: 120 } }
+                }
+            },
+            sections: [{
+                children: [
+                    new Paragraph({
+                        text: `${resume.firstName} ${resume.lastName}`,
+                        heading: HeadingLevel.TITLE,
+                        alignment: AlignmentType.CENTER,
+                    }),
+                    new Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        text: [resume.profession, resume.email, resume.phone, resume.location].filter(Boolean).join(" | "),
+                    }),
+                    ...(resume.websites && resume.websites.length > 0 ? [new Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        text: (resume.websites || []).map(w => w.url).join(" | ")
+                    })] : []),
+                    new Paragraph({ text: "" }), // Spacer
 
-        const addSection = (title: string, body: () => void) => {
-            children.push(new Paragraph({ text: title, heading: HeadingLevel.HEADING_1, border: { bottom: { color: "auto", space: 1, value: "single", size: 6 } } }));
-            body();
-            children.push(new Paragraph(""));
-        };
+                    // Summary
+                    ...(resume.summary ? [
+                        new Paragraph({ text: "Summary", heading: HeadingLevel.HEADING_1 }),
+                        new Paragraph({ text: resume.summary }),
+                    ] : []),
 
-        if (resume.summary) addSection('Summary', () => { children.push(new Paragraph({ children: createTextRuns(resume.summary)})); });
-        if (resume.experience.length > 0) addSection('Experience', () => resume.experience.forEach(exp => {
-            children.push(new Paragraph({ children: [new TextRun({ text: exp.title, bold: true }), new TextRun({text: ` at ${exp.company}`, bold: true})]}));
-            children.push(new Paragraph({ children: [new TextRun({ text: `${exp.location} | ${exp.dates}`, italics: true })]}));
-            exp.responsibilities.forEach(resp => children.push(new Paragraph({ text: resp, bullet: { level: 0 } })));
-            children.push(new Paragraph(""));
-        }));
-        if (resume.projects && resume.projects.length > 0) addSection('Projects', () => resume.projects.forEach(proj => {
-            children.push(new Paragraph({ children: [new TextRun({ text: proj.name, bold: true })]}));
-            if(proj.url) children.push(new Paragraph({ text: proj.url, style: "Hyperlink" }));
-            children.push(new Paragraph({ children: createTextRuns(proj.description)}));
-            children.push(new Paragraph({ children: [new TextRun({text: 'Technologies: ', bold: true}), new TextRun(proj.technologies.join(", "))]}));
-            children.push(new Paragraph(""));
-        }));
-        if (resume.education.length > 0) addSection('Education', () => resume.education.forEach(edu => {
-            children.push(new Paragraph({ children: [new TextRun({ text: `${edu.degree}, ${edu.school}`, bold: true })]}));
-            children.push(new Paragraph({ children: [new TextRun({ text: `${edu.location} | ${edu.dates}`, italics: true })]}));
-            children.push(new Paragraph(""));
-        }));
-        if (resume.customSections && resume.customSections.length > 0) resume.customSections.forEach(sec => addSection(sec.title, () => {
-            children.push(new Paragraph({ children: createTextRuns(sec.content) }));
-        }));
-        if (resume.skills.length > 0) addSection('Skills', () => { children.push(new Paragraph(resume.skills.join(", "))); });
-        if (resume.achievements && resume.achievements.length > 0) addSection('Achievements', () => resume.achievements.forEach(ach => children.push(new Paragraph({ text: ach, bullet: { level: 0 } }))));
-        if (resume.hobbies && resume.hobbies.length > 0) addSection('Hobbies & Interests', () => { children.push(new Paragraph(resume.hobbies.join(", "))); });
+                    // Experience
+                    ...(resume.experience.length > 0 ? [
+                        new Paragraph({ text: "Experience", heading: HeadingLevel.HEADING_1 }),
+                        ...resume.experience.flatMap(exp => [
+                            new Paragraph({
+                                children: [
+                                    new TextRun({ text: exp.title, bold: true }),
+                                    new TextRun({ text: ` at ${exp.company}` }),
+                                ]
+                            }),
+                            new Paragraph({
+                                children: [
+                                    new TextRun({ text: exp.location, italics: true }),
+                                    new TextRun({ text: ` | ${exp.dates}`, italics: true }),
+                                ]
+                            }),
+                            ...exp.responsibilities.map(resp => new Paragraph({ text: resp, bullet: { level: 0 } })),
+                            new Paragraph({ text: "" }),
+                        ]),
+                    ] : []),
+                    
+                    // Projects
+                    ...(resume.projects && resume.projects.length > 0 ? [
+                        new Paragraph({ text: "Projects", heading: HeadingLevel.HEADING_1 }),
+                         ...resume.projects.flatMap(proj => [
+                            new Paragraph({ children: [
+                                new TextRun({ text: proj.name, bold: true }),
+                                ...(proj.url ? [new TextRun({ text: ` | ${proj.url}` })] : [])
+                            ]}),
+                            new Paragraph({ text: proj.description }),
+                            new Paragraph({ children: [new TextRun({ text: "Technologies: ", bold: true, italics: true }), new TextRun({text: proj.technologies.join(", ")}) ]}),
+                            new Paragraph({ text: "" }),
+                         ]),
+                    ] : []),
 
-        const doc = new Document({ styles: { paragraph: { run: { font: "PT Sans", size: 22 } }, heading1: { run: { font: "Poppins", size: 28, bold: true }, paragraph: { spacing: { after: 120 } } }, title: { run: { font: "Poppins", size: 44, bold: true }, paragraph: { spacing: { after: 120 } } }, }, sections: [{ children }] });
+                    // Education
+                    ...(resume.education.length > 0 ? [
+                        new Paragraph({ text: "Education", heading: HeadingLevel.HEADING_1 }),
+                        ...resume.education.flatMap(edu => [
+                             new Paragraph({
+                                children: [
+                                    new TextRun({ text: edu.degree, bold: true }),
+                                    new TextRun({ text: ` at ${edu.school}` }),
+                                ]
+                            }),
+                            new Paragraph({
+                                children: [
+                                    new TextRun({ text: edu.location, italics: true }),
+                                    new TextRun({ text: ` | ${edu.dates}`, italics: true }),
+                                ]
+                            }),
+                             new Paragraph({ text: "" }),
+                        ]),
+                    ] : []),
+                    
+                    // Skills
+                     ...(resume.skills.length > 0 ? [
+                        new Paragraph({ text: "Skills", heading: HeadingLevel.HEADING_1 }),
+                        new Paragraph({ text: resume.skills.join(' • ') }),
+                    ] : []),
+                    
+                     // Achievements
+                    ...(resume.achievements && resume.achievements.length > 0 ? [
+                        new Paragraph({ text: "Achievements", heading: HeadingLevel.HEADING_1 }),
+                        ...resume.achievements.map(ach => new Paragraph({ text: ach, bullet: { level: 0 } })),
+                    ] : []),
+
+                    // Custom Sections
+                    ...(resume.customSections && resume.customSections.length > 0 ?
+                      resume.customSections.flatMap(sec => [
+                        new Paragraph({ text: sec.title, heading: HeadingLevel.HEADING_1 }),
+                        new Paragraph({ text: sec.content }),
+                      ])
+                    : []),
+
+                     // Hobbies
+                    ...(resume.hobbies && resume.hobbies.length > 0 ? [
+                        new Paragraph({ text: "Hobbies & Interests", heading: HeadingLevel.HEADING_1 }),
+                        new Paragraph({ text: resume.hobbies.join(', ') }),
+                    ] : []),
+                ],
+            }],
+        });
+
         const blob = await Packer.toBlob(doc);
-        saveAs(blob, `${fullName.replace(/\s+/g, "_") || "resume"}_resume.docx`);
+        saveAs(blob, `${[resume.firstName, resume.lastName].join('_') || 'resume'}_resume.docx`);
     } catch (error) {
       console.error(error);
       toast({ variant: "destructive", title: "Download Failed", description: "Error generating DOCX." });
@@ -493,6 +593,7 @@ export function ResumeEditor({ initialResumeData, onBack, template: initialTempl
       setIsDownloading(false);
     }
   };
+
 
   const editorDisabled = isDownloading || isChatEnhancing;
   
@@ -654,7 +755,7 @@ export function ResumeEditor({ initialResumeData, onBack, template: initialTempl
   }
 
   return (
-     <div className="flex h-screen bg-muted/40 flex-col md:flex-row">
+     <div className="flex h-screen bg-muted/40 flex-col md:flex-row no-print">
         {/* Left Sidebar */}
         <aside className={cn(
           "border-b md:border-r md:border-b-0 border-border bg-background flex flex-col transition-all duration-300",
@@ -662,13 +763,13 @@ export function ResumeEditor({ initialResumeData, onBack, template: initialTempl
         )}>
             <div className="p-4 border-b border-border flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1">
-                    <Button onClick={() => setIsSidebarOpen(!isSidebarOpen)} variant="ghost" size="icon" className="hidden md:flex">
+                     <Button onClick={() => setIsSidebarOpen(!isSidebarOpen)} variant="ghost" size="icon" className="hidden md:flex">
                         {isSidebarOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelRightClose className="h-5 w-5" />}
                         <span className="sr-only">Toggle AI Panel</span>
                     </Button>
                     <Button variant="outline" size={isSidebarOpen ? "sm" : "icon"} onClick={onBack}>
                         <ChevronLeft className="h-4 w-4" />
-                        <span className={cn("ml-2", !isSidebarOpen && "hidden")}>Back</span>
+                        <span className={cn("ml-2", !isSidebarOpen && "hidden")}>Back to Wizard</span>
                     </Button>
                 </div>
 
@@ -767,7 +868,7 @@ export function ResumeEditor({ initialResumeData, onBack, template: initialTempl
         </aside>
         
         {/* Main Content: Interactive Preview */}
-        <main className="flex-1 bg-muted/20 flex flex-col overflow-hidden">
+        <main className="flex-1 bg-muted/20 flex flex-col overflow-hidden resume-editor-main">
              <div className="p-4 border-b border-border bg-background flex-wrap flex items-center justify-center gap-4">
                  <div className="space-y-1">
                      <label className="text-xs font-medium">Template</label>
@@ -810,8 +911,11 @@ export function ResumeEditor({ initialResumeData, onBack, template: initialTempl
                     <Button variant="outline" onClick={() => handleEdit({type: 'new_customSection'})}>Add Section</Button>
                  </div>
             </div>
-            <ScrollArea className="flex-1">
-                <div className="p-4 md:p-8 flex justify-center">
+            <div className="flex-1 overflow-auto p-4 md:p-8">
+                <div 
+                    className="mx-auto resume-preview-container"
+                    style={{ width: '8.5in', maxWidth: '100%' }}
+                >
                     <ResumePreview
                         ref={previewRef}
                         resumeData={resume}
@@ -819,7 +923,7 @@ export function ResumeEditor({ initialResumeData, onBack, template: initialTempl
                         isEditable={true}
                         onEdit={handleEdit}
                         onRemove={removeItem}
-                        className="w-full max-w-[8.5in] bg-white shadow-lg"
+                        className="w-full bg-white shadow-lg"
                         style={{
                             "--theme-color": themeColor,
                             "--font-family-body": FONT_PAIRS[fontPair].body,
@@ -827,7 +931,7 @@ export function ResumeEditor({ initialResumeData, onBack, template: initialTempl
                         } as React.CSSProperties}
                     />
                 </div>
-            </ScrollArea>
+            </div>
         </main>
        
         {/* Item Edit Modal */}
@@ -837,11 +941,13 @@ export function ResumeEditor({ initialResumeData, onBack, template: initialTempl
         <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
             <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
                 <DialogHeader>
-                    <DialogTitle>Resume Preview</DialogTitle>
-                    <DialogDescription>This is how your resume will look. Use the download buttons below.</DialogDescription>
+                    <DialogTitle>Resume Preview & Download</DialogTitle>
+                    <DialogDescription>
+                        For a perfect visual copy, use the PDF format. For an ATS-friendly, editable version, use DOCX.
+                    </DialogDescription>
                 </DialogHeader>
                 <div className="flex-1 overflow-auto bg-muted/40 p-4">
-                    <ResumePreview
+                     <ResumePreview
                         resumeData={resume}
                         templateName={template}
                         className="w-full max-w-[8.5in] mx-auto bg-white shadow-lg"
@@ -863,7 +969,7 @@ export function ResumeEditor({ initialResumeData, onBack, template: initialTempl
                         </DropdownMenuTrigger>
                         <DropdownMenuContent className="w-56">
                             <DropdownMenuItem onClick={handleDownloadPdf}>PDF (Visual Copy)</DropdownMenuItem>
-                            <DropdownMenuItem onClick={handleDownloadDocx}>DOCX (Editable Text)</DropdownMenuItem>
+                            <DropdownMenuItem onClick={handleDownloadDocx}>DOCX (ATS-Friendly)</DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </DialogFooter>
