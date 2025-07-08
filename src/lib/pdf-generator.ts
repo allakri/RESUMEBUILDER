@@ -30,7 +30,7 @@ export const generatePdfBlob = async (
         <ResumePreview
           resumeData={resumeData}
           templateName={templateName}
-          isEditable={false} // Disable editing for print version
+          isEditable={false}
           style={{
             '--theme-color': themeColor,
             '--font-family-body': fontPair.body,
