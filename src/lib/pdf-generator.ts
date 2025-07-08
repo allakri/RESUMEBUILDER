@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import jsPDF from 'jspdf';
@@ -34,7 +35,7 @@ export const generatePdfBlob = async (
             '--theme-color': themeColor,
             '--font-family-body': fontPair.body,
             '--font-family-headline': fontPair.headline,
-          } as React.CSSProperties}
+          }}
         />
       );
       // Brief timeout to allow for rendering and layout calculation
